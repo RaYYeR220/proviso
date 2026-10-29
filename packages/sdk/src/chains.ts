@@ -1,5 +1,6 @@
 import { defineChain, type Address } from "viem";
 import testnet from "../../../contracts/deployments/133.json" with { type: "json" };
+import mainnet from "../../../contracts/deployments/177.json" with { type: "json" };
 
 export const hsk = defineChain({
   id: 177,
@@ -33,6 +34,7 @@ export interface Deployment {
 
 export const deployments: Record<number, Deployment | undefined> = {
   133: testnet as Deployment,
+  177: mainnet as Deployment,
 };
 
 /** Registers a deployment (e.g. mainnet once deployed, or a local fork) at runtime. */
