@@ -16,7 +16,9 @@ const cfg = loadConfig();
 const chain = makeChain(cfg);
 const client = chain.publicClient;
 const agents = loadAgents(cfg.chainId);
-const gasTopUp = parseEther(process.env.AGENT_GAS ?? (cfg.chainId === 177 ? "0.6" : "0.003"));
+// Registering costs an agent ~240k gas (+50k to approve the operator); validators also pay for their responses.
+const agentGas = parseEther(process.env.AGENT_GAS ?? (cfg.chainId === 177 ? "0.2" : "0.003"));
+const validatorGas = parseEther(process.env.VALIDATOR_GAS ?? (cfg.chainId === 177 ? "0.3" : "0.005"));
 
 const roles: { role: string; account: PrivateKeyAccount; operator: boolean; needsGas: boolean }[] = [
   ...cfg.providers.map((p) => ({ role: p.id, account: p.account, operator: true, needsGas: false })),
@@ -45,8 +47,7 @@ async function topUp(to: Address, min: bigint) {
 for (const r of roles) {
   const uri = `${cfg.publicUrl}/agents/${r.role}.json`;
   const existing = agents[r.role];
-  // Registering costs the agent ~150k gas, approving ~50k; validators also pay for their own responses.
-  await topUp(r.account.address, r.needsGas ? gasTopUp : gasTopUp / 3n);
+  await topUp(r.account.address, r.needsGas ? validatorGas : agentGas);
   if (!existing) {
     const tx = await chain.write(r.account, { address: cfg.deployment.identityRegistry, abi: identityRegistryAbi, functionName: "register", args: [uri] });
     const receipt = await client.getTransactionReceipt({ hash: tx });
