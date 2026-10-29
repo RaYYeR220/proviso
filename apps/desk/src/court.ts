@@ -25,31 +25,44 @@ export function requestHashFor(vault: Address, i: number, salt: Hex): Hex {
 export async function fileCourt(ctx: Ctx, deal: DealRow, terms: Terms): Promise<void> {
   const { cfg, chain, db } = ctx;
   const vault = deal.vault as Address;
-  const state = await readVault(chain.publicClient, vault);
-  // Files are looked up by the hashes the vault committed, so the bundle is exactly what the chain points at.
-  const file = (hash: Hex) => {
-    const json = getEvidence(db, hash);
-    return json ? JSON.parse(json) : null;
-  };
-  const bundle = putEvidence(db, cfg.publicUrl, {
-    type: "proviso.court-bundle",
-    chainId: cfg.chainId,
-    vault,
-    dealFactory: cfg.deployment.dealFactory,
-    vaultImpl: cfg.deployment.vaultImpl,
-    terms: JSON.parse(deal.terms_json),
-    spec: deal.spec_json ? JSON.parse(deal.spec_json) : null,
-    specFile: file(terms.specHash),
-    cartMandate: JSON.parse(deal.cart_json),
-    paymentMandate: deal.payment_mandate_json ? JSON.parse(deal.payment_mandate_json) : null,
-    funding: { tx: deal.funding_tx, sender: deal.funding_sender, rail: deal.rail },
-    onchain: { deliveryHash: state.deliveryHash, reasonHash: state.reasonHash, disputedAt: state.disputedAt },
-    deliveryFile: file(state.deliveryHash),
-    disputeFile: file(state.reasonHash),
-  });
-  addEvent(db, { vault, jobId: deal.job_id, kind: "court-bundle", data: { uri: bundle.uri, hash: bundle.hash } });
+  // Each pass files only what is missing: a request that failed (a dropped RPC call, an empty relayer) is filed on
+  // the next tick, so one bad call cannot leave the panel short of a quorum.
+  const filed = new Set((db.prepare("SELECT idx FROM court WHERE vault = ?").all(deal.vault) as { idx: number }[]).map((r) => r.idx));
+  if (filed.size >= 3) return;
+  const prior = db.prepare("SELECT data_json FROM events WHERE vault = ? AND kind = 'court-bundle' ORDER BY id LIMIT 1").get(deal.vault) as
+    | { data_json: string }
+    | undefined;
+  let bundleUri: string;
+  if (prior) bundleUri = JSON.parse(prior.data_json).uri;
+  else {
+    const state = await readVault(chain.publicClient, vault);
+    // Files are looked up by the hashes the vault committed, so the bundle is exactly what the chain points at.
+    const file = (hash: Hex) => {
+      const json = getEvidence(db, hash);
+      return json ? JSON.parse(json) : null;
+    };
+    const bundle = putEvidence(db, cfg.publicUrl, {
+      type: "proviso.court-bundle",
+      chainId: cfg.chainId,
+      vault,
+      dealFactory: cfg.deployment.dealFactory,
+      vaultImpl: cfg.deployment.vaultImpl,
+      terms: JSON.parse(deal.terms_json),
+      spec: deal.spec_json ? JSON.parse(deal.spec_json) : null,
+      specFile: file(terms.specHash),
+      cartMandate: JSON.parse(deal.cart_json),
+      paymentMandate: deal.payment_mandate_json ? JSON.parse(deal.payment_mandate_json) : null,
+      funding: { tx: deal.funding_tx, sender: deal.funding_sender, rail: deal.rail },
+      onchain: { deliveryHash: state.deliveryHash, reasonHash: state.reasonHash, disputedAt: state.disputedAt },
+      deliveryFile: file(state.deliveryHash),
+      disputeFile: file(state.reasonHash),
+    });
+    addEvent(db, { vault, jobId: deal.job_id, kind: "court-bundle", data: { uri: bundle.uri, hash: bundle.hash } });
+    bundleUri = bundle.uri;
+  }
 
   for (let i = 0; i < 3; i++) {
+    if (filed.has(i)) continue;
     const salt = toHex(randomBytes(32));
     const h = requestHashFor(vault, i, salt);
     const validator = terms.validators[i]!;
@@ -57,7 +70,7 @@ export async function fileCourt(ctx: Ctx, deal: DealRow, terms: Terms): Promise<
       address: cfg.deployment.validationRegistry,
       abi: validationRegistryAbi,
       functionName: "validationRequest",
-      args: [validator, terms.providerAgentId, bundle.uri, h],
+      args: [validator, terms.providerAgentId, bundleUri, h],
     });
     db.prepare("INSERT INTO court (vault, idx, salt, request_hash, validator, request_tx) VALUES (?,?,?,?,?,?)").run(
       deal.vault,
