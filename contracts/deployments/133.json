@@ -1,12 +1,14 @@
 {
   "chainId": 133,
-  "dealFactory": "0x5102481bB8b769231Edc468A6AAe610becCA0292",
-  "deployedAtBlock": 35047230,
+  "dealFactory": "0xFEF4cF71286a43c3adcD5b59499160d729895817",
+  "deployedAtBlock": 35051017,
   "feeRecipient": "0x99375054F10Bd5854bFa850E1a422f4d0D540f07",
-  "identityRegistry": "0x76e212Cf2aF95d17D6CD40C29FD4dAea19D1F5eF",
-  "reputationRegistry": "0x2C808A951957B1F0D0d066A62370932DFac788B1",
+  "identityRegistry": "0x629aca207C1e31BE5438b42f6ac446c66Dd6EdAC",
+  "registriesRenounced": true,
+  "reputationRegistry": "0x18961833b052FCFe74805854bB494583D169B881",
+  "settler": "0x99375054F10Bd5854bFa850E1a422f4d0D540f07",
   "usdc": "0x8FE3cB719Ee4410E236Cd6b72ab1fCDC06eF53c6",
   "usdt": "0x372325443233fEbaC1F6998aC750276468c83CC6",
-  "validationRegistry": "0xAe9E6d4dd97527B01C0410ce822Feb3eA66B4036",
-  "vaultImpl": "0x7B0Dd4D1bB08b15B5D34d2C2C2d9D0F3Af139125"
+  "validationRegistry": "0x75d69b137236a287ae7a93e84747ED919210184e",
+  "vaultImpl": "0xac822DD3c348a56fB529F256D04Ef03e6Ab05417"
 }
