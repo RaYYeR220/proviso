@@ -30,6 +30,19 @@ export function railOf(ctx: Ctx, sender: Address): "hsp-gateway" | "self-relay" 
   return "direct";
 }
 
+/** What a funding pass does with what the chain shows. Pure, so it is tested without a chain. */
+export function fundingStep(x: { balance: bigint; amount: bigint; expired: boolean; payerTransfer: boolean }): "wait" | "expire" | "fund" {
+  if (x.balance === 0n) return x.expired ? "expire" : "wait";
+  if (x.balance < x.amount && !x.expired) return "wait";
+  // a load-balanced RPC can show the balance before the log: read again next tick rather than record no funder
+  if (!x.payerTransfer && !x.expired) return "wait";
+  return "fund";
+}
+
+/** A deployed vault still Open with its full amount in it was opened before the money landed. */
+export const needsMarkFunded = (s: VaultState, balance: bigint, amount: bigint) =>
+  s.deployed && s.status === "Open" && !s.invalidTerms && balance >= amount;
+
 export class Keeper {
   private running = false;
   private funding = false;
@@ -118,9 +131,8 @@ export class Keeper {
       return this.syncStage(deal, await readVault(chain.publicClient, deal.vault as Address));
     }
     if (state.status === "Disputed") {
-      const filed = this.ctx.db.prepare("SELECT COUNT(*) AS n FROM court WHERE vault = ?").get(deal.vault) as { n: number };
-      if (filed.n === 0) await fileCourt(this.ctx, deal, terms);
-      else if (await tryResolve(this.ctx, deal)) this.syncStage(deal, await readVault(chain.publicClient, deal.vault as Address));
+      await fileCourt(this.ctx, deal, terms); // files only the requests still missing; a no-op once all three are out
+      if (await tryResolve(this.ctx, deal)) this.syncStage(deal, await readVault(chain.publicClient, deal.vault as Address));
       return;
     }
     if (TERMINAL.has(state.status) && !deal.settled_tx) await this.settle(getDeal(this.ctx.db, deal.vault)!, state);
@@ -144,21 +156,25 @@ export class Keeper {
       args: [deal.vault as Address],
     })) as bigint;
     const expired = now() > deliverBy;
-    if (balance === 0n) {
-      if (expired) {
-        updateDeal(db, deal.vault, { stage: "expired-unpaid" });
-        addEvent(db, { vault: deal.vault, jobId: deal.job_id, kind: "expired-unpaid", data: { note: "no money was ever sent to the escrow" } });
-      }
+    // The payer's own transfer is what funds a deal (EIP-3009 and Permit2 both move tokens from the payer): a stranger's
+    // dust sent to the public vault address first must not become the deal's "funding transaction".
+    const logs =
+      balance > 0n
+        ? await chain.publicClient.getLogs({
+            address: terms.token,
+            event: transferEvent,
+            args: { from: terms.payer, to: deal.vault as Address },
+            fromBlock: BigInt(deal.created_block),
+          })
+        : [];
+    const next = fundingStep({ balance, amount, expired, payerTransfer: logs.length > 0 });
+    if (next === "expire") {
+      updateDeal(db, deal.vault, { stage: "expired-unpaid" });
+      addEvent(db, { vault: deal.vault, jobId: deal.job_id, kind: "expired-unpaid", data: { note: "no money was ever sent to the escrow" } });
       return;
     }
-    if (balance < amount && !expired) return;
+    if (next === "wait") return;
 
-    const logs = await chain.publicClient.getLogs({
-      address: terms.token,
-      event: transferEvent,
-      args: { to: deal.vault as Address },
-      fromBlock: BigInt(deal.created_block),
-    });
     const fundingTx = logs[0]?.transactionHash;
     let sender: Address | null = null;
     if (fundingTx) sender = (await chain.publicClient.getTransaction({ hash: fundingTx })).from;
@@ -180,7 +196,14 @@ export class Keeper {
       });
       addEvent(db, { vault: deal.vault, jobId: deal.job_id, kind: "vault-opened", data: {}, tx });
     }
-    const state = await readVault(chain.publicClient, deal.vault as Address);
+    let state = await readVault(chain.publicClient, deal.vault as Address);
+    // Anyone may open a vault before its money lands (the terms are public); init() then saw no balance, and a later
+    // open() is a no-op. markFunded() is the vault's own way to look again.
+    if (needsMarkFunded(state, balance, amount)) {
+      const tx = await chain.write(cfg.relayer, { address: deal.vault as Address, abi: dealVaultAbi, functionName: "markFunded" });
+      addEvent(db, { vault: deal.vault, jobId: deal.job_id, kind: "marked-funded", data: {}, tx });
+      state = await readVault(chain.publicClient, deal.vault as Address);
+    }
     updateDeal(db, deal.vault, { stage: state.status === "Open" ? "funded" : state.status.toLowerCase() });
     await this.confirmQuote(deal, terms);
   }
