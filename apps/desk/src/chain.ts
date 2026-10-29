@@ -48,10 +48,20 @@ export function makeChain(cfg: Config): Chain {
   async function send(account: PrivateKeyAccount, req: { address: Address; abi: Abi; functionName: string; args?: readonly unknown[] }) {
     const wallet = createWalletClient({ account, chain, transport });
     const { request } = await publicClient.simulateContract({ ...req, account } as never);
-    const hash = await wallet.writeContract(request as never);
-    const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 120_000 });
-    if (receipt.status !== "success") throw new Error(`tx ${hash} reverted`);
-    return hash;
+    // Public RPCs can lag on the pending nonce; ask for it explicitly and retry the few nonce/price races.
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const nonce = await publicClient.getTransactionCount({ address: account.address, blockTag: "pending" });
+        const hash = await wallet.writeContract({ ...(request as object), nonce } as never);
+        const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 120_000 });
+        if (receipt.status !== "success") throw new Error(`tx ${hash} reverted`);
+        return hash;
+      } catch (e) {
+        const msg = String((e as Error).message ?? e);
+        if (attempt >= 4 || !/underpriced|nonce too low|already known|nonce/i.test(msg)) throw e;
+        await new Promise((r) => setTimeout(r, 2500 * (attempt + 1)));
+      }
+    }
   }
 
   return {
