@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { keccak256, toHex, type Address } from "viem";
-import { predictVault, type Terms } from "@proviso/sdk/terms";
+import { predictVault, type Terms } from "@/lib/terms";
 import { AGENTS, DEPLOYMENT } from "@/lib/deployment";
 import { DotAddress } from "./DotAddress";
 

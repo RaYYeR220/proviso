@@ -47,9 +47,6 @@ importers:
 
   apps/web:
     dependencies:
-      '@proviso/sdk':
-        specifier: workspace:*
-        version: link:../../packages/sdk
       next:
         specifier: 16.4.3
         version: 16.4.3(@types/node@24.19.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)

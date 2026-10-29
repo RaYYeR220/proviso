@@ -112,40 +112,51 @@ contract AuditPoC is Base {
         assertEq(usdc.balanceOf(validators[2]), 0); // voted with the majority, paid nothing
     }
 
-    /// Probe: can a gas-limited open() make the try/catch around identity.ownerOf fail and flag valid terms
-    /// invalid (forced refund)? Scans gas limits just below the success threshold.
+    /// Probe (exhaustive at 3-gas steps, verified separately with --gas-limit 9e12 over 60k..420k / 30k..700k):
+    /// no gas limit makes open() complete with valid terms flagged invalid, or settle() complete while the
+    /// provider feedback OOGs inside its try/catch. Here: scan only around the first-success threshold.
     function test_probe_openGasGrief() public {
         Terms memory t = _terms();
         address predicted = factory.predict(t);
         usdc.mint(predicted, t.amount);
-        uint256 found;
-        for (uint256 g = 60_000; g < 420_000; g += 3) {
+        bytes memory data = abi.encodeCall(DealFactory.open, (t));
+        uint256 g0 = _firstOk(address(factory), data, 60_000, 600_000);
+        for (uint256 g = g0 - 2_000; g < g0 + 2_000; g += 3) {
             uint256 snap = vm.snapshotState();
-            (bool ok,) = address(factory).call{gas: g}(abi.encodeCall(DealFactory.open, (t)));
-            if (ok && DealVault(predicted).invalidTerms()) found = g;
+            (bool ok,) = address(factory).call{gas: g}(data);
+            bool bad = ok && DealVault(predicted).invalidTerms();
             vm.revertToState(snap);
-            if (found != 0) break;
+            assertFalse(bad, "open gas grief window exists");
         }
-        assertEq(found, 0, "open gas grief window exists");
     }
 
-    /// Probe: can a gas-limited settle() mark the vault settled while the provider's feedback silently OOGs?
     function test_probe_settleGasGrief() public {
         Terms memory t = _terms();
         DealVault v = _fundAndOpen(t);
         vm.warp(t.deliverBy + 1);
         v.finalize();
-        uint256 found;
-        for (uint256 g = 30_000; g < 700_000; g += 3) {
+        bytes memory data = abi.encodeCall(DealFactory.settle, (address(v), "", bytes32(0)));
+        uint256 g0 = _firstOk(address(factory), data, 30_000, 900_000);
+        for (uint256 g = g0 - 2_000; g < g0 + 2_000; g += 3) {
             uint256 snap = vm.snapshotState();
-            (bool ok,) = address(factory).call{gas: g}(abi.encodeCall(DealFactory.settle, (address(v), "", bytes32(0))));
+            (bool ok,) = address(factory).call{gas: g}(data);
+            bool bad;
             if (ok) {
                 (uint64 n,) = _summary(providerAgentId, "proviso.settlement");
-                if (n == 0) found = g;
+                bad = n == 0;
             }
             vm.revertToState(snap);
-            if (found != 0) break;
+            assertFalse(bad, "settle gas grief window exists");
         }
-        assertEq(found, 0, "settle gas grief window exists");
+    }
+
+    function _firstOk(address target, bytes memory data, uint256 lo, uint256 hi) internal returns (uint256) {
+        for (uint256 g = lo; g < hi; g += 1_000) {
+            uint256 snap = vm.snapshotState();
+            (bool ok,) = target.call{gas: g}(data);
+            vm.revertToState(snap);
+            if (ok) return g;
+        }
+        revert("never ok");
     }
 }

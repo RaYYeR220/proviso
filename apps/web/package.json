@@ -12,7 +12,6 @@
     "next": "16.4.3",
     "react": "19.3.1",
     "react-dom": "19.3.1",
-    "@proviso/sdk": "workspace:*",
     "viem": "2.57.13"
   },
   "devDependencies": {
