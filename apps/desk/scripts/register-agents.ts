@@ -61,8 +61,7 @@ for (const r of roles) {
     }
     if (agentId === undefined) throw new Error(`no Registered event for ${r.role}`);
     agents[r.role] = { role: r.role, address: r.account.address, agentId: agentId.toString(), agentURI: uri, registerTx: tx } satisfies AgentIdentity;
-    writeFileSync(agentsFile(cfg.chainId), JSON.stringify(agents, null, 2) + "
-");
+    writeFileSync(agentsFile(cfg.chainId), `${JSON.stringify(agents, null, 2)}\n`);
     console.log(`${r.role}: agent #${agentId} (${tx})`);
   } else if (existing.agentURI !== uri) {
     const tx = await chain.write(r.account, { address: cfg.deployment.identityRegistry, abi: identityRegistryAbi, functionName: "setAgentURI", args: [BigInt(existing.agentId), uri] });
