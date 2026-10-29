@@ -19,7 +19,7 @@ import { addEvent, getDeal, now, updateDeal, type DealRow } from "./db.ts";
 import { putEvidence } from "./evidence.ts";
 import { fileCourt, tryResolve } from "./court.ts";
 
-const OPEN_STAGES = ["awaiting-payment", "funded", "delivered", "disputed", "released", "refunded", "resolved"];
+const OPEN_STAGES = ["funded", "delivered", "disputed", "released", "refunded", "resolved"];
 const TERMINAL = new Set(["Released", "Refunded", "Resolved"]);
 const transferEvent = parseAbiItem("event Transfer(address indexed from, address indexed to, uint256 value)");
 
@@ -32,16 +32,45 @@ export function railOf(ctx: Ctx, sender: Address): "hsp-gateway" | "self-relay" 
 
 export class Keeper {
   private running = false;
+  private funding = false;
   private wake = new Set<string>();
 
   constructor(private ctx: Ctx) {}
 
   nudge(vault: string) {
     this.wake.add(vault.toLowerCase());
+    void this.fundTick();
     void this.tick();
   }
 
+  /**
+   * Opening a funded vault is time-critical: a vault only counts as funded once it is open, so the funding loop
+   * runs on its own and is never queued behind court filings or settlements.
+   */
+  async fundTick(): Promise<void> {
+    if (this.funding) return;
+    this.funding = true;
+    try {
+      const rows = this.ctx.db
+        .prepare("SELECT * FROM deals WHERE stage = 'awaiting-payment' ORDER BY created_at")
+        .all() as unknown as DealRow[];
+      await Promise.all(
+        rows.map(async (deal) => {
+          const terms = termsFromJson(JSON.parse(deal.terms_json));
+          try {
+            await this.tryFund(deal, terms.amount, Number(terms.deliverBy));
+          } catch (e) {
+            addEvent(this.ctx.db, { vault: deal.vault, jobId: deal.job_id, kind: "keeper-error", data: { message: String((e as Error).message ?? e).slice(0, 400) } });
+          }
+        }),
+      );
+    } finally {
+      this.funding = false;
+    }
+  }
+
   async tick(): Promise<void> {
+    void this.fundTick();
     if (this.running) return;
     this.running = true;
     try {
