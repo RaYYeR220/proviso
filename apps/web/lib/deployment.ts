@@ -2,6 +2,15 @@ import type { Address } from "viem";
 
 /** Contract addresses the site derives vault addresses against (keep in sync with contracts/deployments). */
 export const DEPLOYMENTS: Record<number, { dealFactory: Address; vaultImpl: Address; identityRegistry: Address; reputationRegistry: Address; validationRegistry: Address; usdc: Address; usdt: Address }> = {
+  177: {
+    dealFactory: "0xE7466dd955329203bcB996bA89Da8882E2cAB263",
+    vaultImpl: "0x0adb3adf35516A60Ea1662908Bd82Af6Ef6D4a12",
+    identityRegistry: "0x2a83321DEaaB8dc74afAA97cA9594f1D1de8b4fe",
+    reputationRegistry: "0xb41B55D151bbE430b690cdFbf2a0A9D439b22a54",
+    validationRegistry: "0x6bbfD112b3F8b6FE5b6700FaD0816C7955c7A3cb",
+    usdc: "0x054ed45810DbBAb8B27668922D110669c9D88D0a",
+    usdt: "0xF1B50eD67A9e2CC94Ad3c477779E2d4cBfFf9029",
+  },
   133: {
     dealFactory: "0xFEF4cF71286a43c3adcD5b59499160d729895817",
     vaultImpl: "0xac822DD3c348a56fB529F256D04Ef03e6Ab05417",
@@ -13,8 +22,14 @@ export const DEPLOYMENTS: Record<number, { dealFactory: Address; vaultImpl: Addr
   },
 };
 
-export const CHAIN_ID = Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? 133);
-export const DEPLOYMENT = DEPLOYMENTS[CHAIN_ID] ?? DEPLOYMENTS[133]!;
+export const CHAIN_ID = Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? 177);
+export const DEPLOYMENT = DEPLOYMENTS[CHAIN_ID] ?? DEPLOYMENTS[177]!;
+
+/** ERC-8004 agent ids of the hosted agents on each chain. */
+export const AGENT_IDS: Record<number, { auditor: bigint; analyst: bigint; localizer: bigint; paymentAgent: bigint }> = {
+  177: { auditor: 0n, analyst: 1n, localizer: 2n, paymentAgent: 4n },
+  133: { auditor: 1n, analyst: 2n, localizer: 3n, paymentAgent: 5n },
+};
 
 export const AGENTS = {
   paymentAgent: "0x9A712cb6353C84A7893b0A5Fd0702663a2032C21" as Address,

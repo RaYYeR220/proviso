@@ -3,18 +3,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { keccak256, toHex, type Address } from "viem";
 import { predictVault, type Terms } from "@/lib/terms";
-import { AGENTS, DEPLOYMENT } from "@/lib/deployment";
+import { AGENT_IDS, AGENTS, CHAIN_ID, DEPLOYMENT } from "@/lib/deployment";
+
+const IDS = AGENT_IDS[CHAIN_ID] ?? AGENT_IDS[177]!;
 import { DotAddress } from "./DotAddress";
 
 const PROVIDERS: { name: string; address: Address; id: bigint }[] = [
-  { name: "Auditor agent", address: AGENTS.auditor, id: 1n },
-  { name: "Localizer agent", address: AGENTS.localizer, id: 3n },
-  { name: "Analyst agent", address: AGENTS.analyst, id: 2n },
+  { name: "Auditor agent", address: AGENTS.auditor, id: IDS.auditor },
+  { name: "Localizer agent", address: AGENTS.localizer, id: IDS.localizer },
+  { name: "Analyst agent", address: AGENTS.analyst, id: IDS.analyst },
 ];
 const PRICES = [
-  { label: "0.05 USDC.e", amount: 50_000n },
-  { label: "0.25 USDC.e", amount: 250_000n },
-  { label: "12 USDC.e", amount: 12_000_000n },
+  { label: "0.01 USDT", amount: 10_000n },
+  { label: "0.25 USDT", amount: 250_000n },
+  { label: "12 USDT", amount: 12_000_000n },
 ];
 const DUE = [
   { label: "2 hours", s: 7200n },
@@ -40,7 +42,7 @@ export function AddressHero() {
     const terms: Terms = {
       payer: AGENTS.paymentAgent,
       provider: p.address,
-      token: DEPLOYMENT.usdc,
+      token: DEPLOYMENT.usdt,
       amount: PRICES[t.price]!.amount,
       deliverBy: EPOCH + DUE[t.due]!.s,
       challengeWindow: 120,
@@ -49,7 +51,7 @@ export function AddressHero() {
       courtFeeBps: 300,
       validators: AGENTS.validators,
       providerAgentId: p.id,
-      payerAgentId: 5n,
+      payerAgentId: IDS.paymentAgent,
       specHash: keccak256(toHex("audit TipJar")),
       intentHash: keccak256(toHex("user intent")),
       salt: keccak256(toHex("deal-hero")),
