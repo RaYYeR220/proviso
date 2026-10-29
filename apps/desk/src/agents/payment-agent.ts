@@ -12,6 +12,7 @@ import {
   hashIntent,
   HSK,
   HspPayer,
+  readVault,
   settlementReputation,
   signAccept,
   signDispute,
@@ -30,7 +31,7 @@ import { putEvidence } from "../evidence.ts";
 import { facilitatorPayMandate } from "../facilitator.ts";
 import type { Keeper } from "../keeper.ts";
 import type { TaskSpec } from "../merchant.ts";
-import { checkDeliverable } from "./acceptance.ts";
+import { checkDeliverable, checkWithin } from "./acceptance.ts";
 import { a2aBase } from "./cards.ts";
 import { erc20Abi } from "../chain.ts";
 import { SAMPLE_CONTRACT } from "./skills.ts";
@@ -325,7 +326,11 @@ async function hire(
   const delivery = findData<{ deliveryHash: Hex; content: string; uri: string }>(done.artifacts.flatMap((x) => x.parts as unknown[]), DATA_KEYS.delivery)!;
   const deal = getDeal(ctx.db, vault)!;
   const spec = JSON.parse(deal.spec_json) as TaskSpec;
-  const check = await checkDeliverable(ctx, spec, delivery.content);
+  // budget: the challenge window as the chain counts it (its timestamps can lag the wall clock, which only shortens
+  // the budget), less time for the dispute transaction itself
+  const onchain = await readVault(ctx.chain.publicClient, vault);
+  const windowEnds = ((onchain.deliveredAt || Math.floor(Date.now() / 1000)) + Number(terms.challengeWindow)) * 1000;
+  const check = await checkWithin(() => checkDeliverable(ctx, spec, delivery.content), windowEnds - Date.now() - 25_000);
   addEvent(ctx.db, { vault, jobId: a.jobId, kind: "acceptance-checked", data: { accept: check.accept, score: check.score, reasons: check.reasons, floor: check.floor } });
 
   if (check.accept) {

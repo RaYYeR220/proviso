@@ -60,6 +60,24 @@ const RUBRIC_SCHEMA = {
  * by a model against the spec's acceptance criterion. Accept at >= 60. The decision is advisory to nobody:
  * accepting releases escrow, refusing opens a dispute that three validators decide.
  */
+/**
+ * The check has to finish while the payer can still dispute: silence past the challenge window releases the escrow.
+ * Past its budget, or on any error (a model outage), it fails closed: the payer disputes and the validators decide.
+ */
+export async function checkWithin(run: () => Promise<AcceptanceResult>, budgetMs: number): Promise<AcceptanceResult> {
+  const closed = (reason: string): AcceptanceResult => ({ accept: false, score: 0, reasons: [reason], floor: [] });
+  if (budgetMs <= 0) return closed("the acceptance check did not finish inside the challenge window");
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<AcceptanceResult>((r) => {
+    timer = setTimeout(() => r(closed("the acceptance check did not finish inside the challenge window")), budgetMs);
+  });
+  try {
+    return await Promise.race([run().catch((e) => closed(`the acceptance check failed: ${String((e as Error).message ?? e).slice(0, 160)}`)), late]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function checkDeliverable(ctx: Ctx, spec: TaskSpec, content: string): Promise<AcceptanceResult> {
   const floor = floorChecks(spec, content);
   const failed = floor.filter((c) => !c.ok);
