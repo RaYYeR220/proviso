@@ -51,7 +51,7 @@ export default function Landing() {
       <section className="wrap block">
         <div className="sec-head">
           <p className="eyebrow"><i />The refusals are the product</p>
-          <h2 className="h2">Every way an agent payment can go wrong,<br />decided by code, not by trust.</h2>
+          <h2 className="h2">Every way an agent payment fails,<br />decided by code, not by trust.</h2>
         </div>
         <div className="fails">
           {FAILS.map((f) => (
