@@ -1,10 +1,12 @@
-import { decodeEventLog, getAddress, parseAbiItem, type Address, type Hex } from "viem";
+import { decodeEventLog, getAddress, keccak256, parseAbiItem, type Address, type Hex } from "viem";
 import {
   canonicalJson,
   cartHash,
   dealFactoryAbi,
   dealVaultAbi,
+  encodeTerms,
   HSK,
+  signQuote,
   readVault,
   termsFromJson,
   type CartMandate,
@@ -133,6 +135,15 @@ export class Keeper {
       args: [terms],
     });
     addEvent(db, { vault: deal.vault, jobId: deal.job_id, kind: "vault-opened", data: {}, tx });
+    // Hosted providers acknowledge the exact terms they quoted; without this the vault never rates them.
+    const hosted = cfg.providers.find((p) => getAddress(p.account.address) === getAddress(terms.provider));
+    if (hosted) {
+      const vault = deal.vault as Address;
+      const termsHash = keccak256(encodeTerms(terms));
+      const sig = await signQuote(hosted.account, { chainId: cfg.chainId, vault, termsHash });
+      const ctx2 = await chain.write(cfg.relayer, { address: vault, abi: dealVaultAbi, functionName: "confirm", args: [sig] });
+      addEvent(db, { vault, jobId: deal.job_id, kind: "quote-confirmed", data: { provider: hosted.id }, tx: ctx2 });
+    }
     const state = await readVault(chain.publicClient, deal.vault as Address);
     updateDeal(db, deal.vault, { stage: state.status === "Open" ? "funded" : state.status.toLowerCase() });
   }

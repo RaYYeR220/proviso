@@ -80,6 +80,8 @@ export function describe(kind: string, d: Record<string, any> | null): { title: 
       return { title: `Escrow funded ${usd(x.amount)}`, body: `Funding tx sent by ${x.sender?.toLowerCase() === HSP_RELAYER.toLowerCase() ? "the HSP gateway relayer" : short(x.sender)} (${RAIL_LABEL[x.rail] ?? x.rail})`, tone: "ok" };
     case "vault-opened":
       return { title: "Vault deployed at its predicted address", tone: "muted" };
+    case "quote-confirmed":
+      return { title: "Provider signed the quote", body: "EIP-712 acknowledgement of these exact terms; only now can the deal affect its reputation", tone: "muted" };
     case "payment-mandate-received":
       return { title: "Provider received the Payment Mandate", tone: "muted" };
     case "provider-silent":

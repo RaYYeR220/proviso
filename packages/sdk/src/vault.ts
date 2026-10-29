@@ -3,7 +3,7 @@ import { dealFactoryAbi, dealVaultAbi, reputationRegistryAbi } from "./abi.ts";
 
 export const VAULT_STATUS = ["Open", "Funded", "Delivered", "Disputed", "Released", "Refunded", "Resolved"] as const;
 export type VaultStatus = (typeof VAULT_STATUS)[number];
-export const REFUND_REASON = ["None", "NoDelivery", "NoQuorum", "InvalidTerms"] as const;
+export const REFUND_REASON = ["None", "NoDelivery", "NoQuorum", "InvalidTerms", "NotFunded"] as const;
 export const COURT_TAG = "proviso.court.v1";
 export const SETTLEMENT_TAG = "proviso.settlement";
 export const PAYER_TAG = "proviso.payer";
@@ -19,6 +19,16 @@ export function signDelivery(account: LocalAccount, a: { chainId: number; vault:
     types: { Delivery: [{ name: "deliveryHash", type: "bytes32" }, { name: "uri", type: "string" }] },
     primaryType: "Delivery",
     message: { deliveryHash: a.deliveryHash, uri: a.uri },
+  });
+}
+
+/** Provider's acknowledgement of the exact terms (`termsHash` = keccak256 of their ABI encoding). */
+export function signQuote(account: LocalAccount, a: { chainId: number; vault: Address; termsHash: Hex }) {
+  return account.signTypedData({
+    domain: domain(a.chainId, a.vault),
+    types: { Quote: [{ name: "termsHash", type: "bytes32" }] },
+    primaryType: "Quote",
+    message: { termsHash: a.termsHash },
   });
 }
 
@@ -48,6 +58,7 @@ export interface VaultState {
   status: VaultStatus;
   refundReason: (typeof REFUND_REASON)[number];
   invalidTerms: boolean;
+  providerCommitted: boolean;
   providerSharePct: number;
   fundedAt: number;
   deliveredAt: number;
@@ -61,13 +72,13 @@ export async function readVault(client: PublicClient, vault: Address): Promise<V
   const empty = "0x0000000000000000000000000000000000000000000000000000000000000000" as Hex;
   if (!code || code === "0x") {
     return {
-      address: vault, deployed: false, status: "Open", refundReason: "None", invalidTerms: false, providerSharePct: 0,
+      address: vault, deployed: false, status: "Open", refundReason: "None", invalidTerms: false, providerCommitted: false, providerSharePct: 0,
       fundedAt: 0, deliveredAt: 0, disputedAt: 0, deliveryHash: empty, reasonHash: empty,
     };
   }
   const read = (functionName: string) => client.readContract({ address: vault, abi: dealVaultAbi, functionName: functionName as never }) as Promise<unknown>;
-  const [status, refundReason, invalidTerms, share, fundedAt, deliveredAt, disputedAt, deliveryHash, reasonHash] = await Promise.all([
-    read("status"), read("refundReason"), read("invalidTerms"), read("providerSharePct"), read("fundedAt"),
+  const [status, refundReason, invalidTerms, committed, share, fundedAt, deliveredAt, disputedAt, deliveryHash, reasonHash] = await Promise.all([
+    read("status"), read("refundReason"), read("invalidTerms"), read("providerCommitted"), read("providerSharePct"), read("fundedAt"),
     read("deliveredAt"), read("disputedAt"), read("deliveryHash"), read("reasonHash"),
   ]);
   return {
@@ -76,6 +87,7 @@ export async function readVault(client: PublicClient, vault: Address): Promise<V
     status: VAULT_STATUS[Number(status)]!,
     refundReason: REFUND_REASON[Number(refundReason)]!,
     invalidTerms: invalidTerms as boolean,
+    providerCommitted: committed as boolean,
     providerSharePct: Number(share),
     fundedAt: Number(fundedAt),
     deliveredAt: Number(deliveredAt),
