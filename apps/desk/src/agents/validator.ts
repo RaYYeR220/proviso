@@ -9,6 +9,7 @@ import {
   validationRegistryAbi,
 } from "@proviso/sdk";
 import type { Ctx } from "../context.ts";
+import type { Llm } from "../llm.ts";
 import { addEvent, type DealRow } from "../db.ts";
 import { evidenceHash, getEvidence, putEvidence } from "../evidence.ts";
 
@@ -28,35 +29,44 @@ const VERDICT_SCHEMA = {
   },
 };
 
+export interface ChainView {
+  vault: Address;
+  predicted: Address;
+  deliveryHash: Hex;
+  reasonHash: Hex;
+  status: string;
+}
+
 /**
  * Integrity checks a validator runs before reading any argument: every file in the bundle must hash to the
  * value committed on chain. A bundle that fails any check is decided against the provider (the party that
- * assembled it), without asking a model.
+ * assembled it), without asking a model. Pure, so the eval's negative controls exercise exactly this code.
  */
-export async function integrityChecks(ctx: Ctx, bundle: any): Promise<{ check: string; ok: boolean }[]> {
-  const vault = getAddress(bundle.vault) as Address;
+export function bundleIntegrity(bundle: any, chain: ChainView): { check: string; ok: boolean }[] {
   const terms = termsFromJson(bundle.terms);
-  const state = await readVault(ctx.chain.publicClient, vault);
-  const predicted = predictVault({ dealFactory: bundle.dealFactory, vaultImpl: bundle.vaultImpl, terms });
   return [
-    { check: "vault address is derived from the terms", ok: getAddress(predicted) === vault },
+    { check: "vault address is derived from the terms", ok: getAddress(chain.predicted) === getAddress(chain.vault) },
     { check: "task spec matches terms.specHash", ok: !!bundle.specFile && evidenceHash(bundle.specFile) === terms.specHash },
-    { check: "deliverable matches the on-chain delivery hash", ok: !!bundle.deliveryFile && evidenceHash(bundle.deliveryFile) === state.deliveryHash },
-    { check: "dispute reason matches the on-chain reason hash", ok: !!bundle.disputeFile && evidenceHash(bundle.disputeFile) === state.reasonHash },
-    { check: "vault is in dispute", ok: state.status === "Disputed" },
+    { check: "deliverable matches the on-chain delivery hash", ok: !!bundle.deliveryFile && evidenceHash(bundle.deliveryFile) === chain.deliveryHash },
+    { check: "dispute reason matches the on-chain reason hash", ok: !!bundle.disputeFile && evidenceHash(bundle.disputeFile) === chain.reasonHash },
+    { check: "vault is in dispute", ok: chain.status === "Disputed" },
   ];
 }
 
-export async function adjudicate(ctx: Ctx, model: string, bundle: any): Promise<Verdict> {
-  const integrity = await integrityChecks(ctx, bundle);
-  if (integrity.some((c) => !c.ok)) {
-    const failed = integrity.filter((c) => !c.ok).map((c) => c.check);
-    return { bucket: 0, reasoning: `Evidence does not match the on-chain commitments (${failed.join("; ")}); the provider's case is not proven.`, integrity };
-  }
-  const spec = bundle.specFile;
-  const deliverable = bundle.deliveryFile?.content;
-  const reason = bundle.disputeFile?.reason;
-  const out = await ctx.llm.json<{ bucket: number; reasoning: string }>(
+export async function integrityChecks(ctx: Ctx, bundle: any): Promise<{ check: string; ok: boolean }[]> {
+  const vault = getAddress(bundle.vault) as Address;
+  const state = await readVault(ctx.chain.publicClient, vault);
+  const predicted = predictVault({ dealFactory: bundle.dealFactory, vaultImpl: bundle.vaultImpl, terms: termsFromJson(bundle.terms) });
+  return bundleIntegrity(bundle, { vault, predicted, deliveryHash: state.deliveryHash, reasonHash: state.reasonHash, status: state.status });
+}
+
+/** The model's part of a verdict: the spec, the deliverable and the buyer's reason, nothing else. */
+export async function judgeOnMerits(
+  llm: Llm,
+  model: string,
+  a: { spec: { skill?: string; input?: unknown; acceptance?: string }; deliverable: string; reason: string },
+): Promise<{ bucket: number; reasoning: string }> {
+  const out = await llm.json<{ bucket: number; reasoning: string }>(
     model,
     [
       {
@@ -70,13 +80,27 @@ export async function adjudicate(ctx: Ctx, model: string, bundle: any): Promise<
       },
       {
         role: "user",
-        content: JSON.stringify({ taskSpec: { skill: spec?.skill, input: spec?.input, acceptance: spec?.acceptance }, deliverable, buyerReason: reason }).slice(0, 24_000),
+        content: JSON.stringify({ taskSpec: { skill: a.spec.skill, input: a.spec.input, acceptance: a.spec.acceptance }, deliverable: a.deliverable, buyerReason: a.reason }).slice(0, 24_000),
       },
     ],
     VERDICT_SCHEMA,
   );
   const bucket = (BUCKETS as readonly number[]).includes(out.bucket) ? out.bucket : 0;
-  return { bucket, reasoning: out.reasoning.slice(0, 2000), integrity };
+  return { bucket, reasoning: String(out.reasoning ?? "").slice(0, 2000) };
+}
+
+export async function adjudicate(ctx: Ctx, model: string, bundle: any): Promise<Verdict> {
+  const integrity = await integrityChecks(ctx, bundle);
+  if (integrity.some((c) => !c.ok)) {
+    const failed = integrity.filter((c) => !c.ok).map((c) => c.check);
+    return { bucket: 0, reasoning: `Evidence does not match the on-chain commitments (${failed.join("; ")}); the provider's case is not proven.`, integrity };
+  }
+  const m = await judgeOnMerits(ctx.llm, model, {
+    spec: bundle.specFile ?? {},
+    deliverable: String(bundle.deliveryFile?.content ?? ""),
+    reason: String(bundle.disputeFile?.reason ?? ""),
+  });
+  return { ...m, integrity };
 }
 
 /** Answers every open court request addressed to this validator (first request per vault only). */
