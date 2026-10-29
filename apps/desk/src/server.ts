@@ -3,7 +3,8 @@ import type { AgentExecutor } from "@a2a-js/sdk/server";
 import { DefaultRequestHandler, InMemoryTaskStore } from "@a2a-js/sdk/server";
 import { agentCardHandler, jsonRpcHandler, UserBuilder } from "@a2a-js/sdk/server/express";
 import { readVault, settlementReputation, PAYER_TAG, type VaultState } from "@proviso/sdk";
-import type { Address } from "viem";
+import { parseEther, parseUnits, type Address } from "viem";
+import { erc20Abi } from "./chain.ts";
 import type { Ctx } from "./context.ts";
 import { onEvent, type DealRow } from "./db.ts";
 import { getEvidence } from "./evidence.ts";
@@ -171,9 +172,27 @@ export function createServer(ctx: Ctx, keeper: Keeper) {
     return mine.n < ctx.cfg.demo.perIpPerHour && all.n < ctx.cfg.demo.dailyCap;
   };
 
-  api.post("/demo/run", (req, res) => {
+  const PAID = new Set(["audit", "brief", "shady", "noshow"]);
+  /** Paid scenarios need gas on the relayer and tokens on the paying agent; refusals never move money. */
+  const canPay = async (scenario: string) => {
+    if (!PAID.has(scenario)) return true;
+    const [gas, tokens] = await Promise.all([
+      ctx.chain.publicClient.getBalance({ address: ctx.cfg.relayer.address }),
+      ctx.chain.publicClient.readContract({ address: ctx.cfg.token.address, abi: erc20Abi, functionName: "balanceOf", args: [ctx.cfg.paymentAgent.address] }) as Promise<bigint>,
+    ]);
+    const perDeal = parseUnits(ctx.cfg.demo.amountUsd, ctx.cfg.token.decimals) * (scenario === "audit" ? 2n : 1n);
+    return gas >= parseEther(process.env.DEMO_MIN_GAS ?? "0.6") && tokens >= perDeal;
+  };
+
+  api.post("/demo/run", async (req, res) => {
     const scenario = String(req.body?.scenario ?? "audit") as Scenario;
     if (!(scenario in SCENARIOS)) return void res.status(400).json({ error: "unknown scenario" });
+    if (!(await canPay(scenario).catch(() => false))) {
+      const recorded = ctx.db
+        .prepare("SELECT id FROM jobs WHERE scenario = ? AND status != 'error' ORDER BY created_at DESC LIMIT 1")
+        .get(scenario) as { id: string } | undefined;
+      return void res.json({ recorded: recorded?.id ?? null, reason: "The demo wallet is out of funds for a paid run; showing the most recent recorded run on this chain." });
+    }
     const ip = String(req.headers["x-forwarded-for"] ?? req.socket.remoteAddress ?? "?").split(",")[0]!.trim();
     if (!rate(ip)) return void res.status(429).json({ error: "demo limit reached; recorded runs are on the deals page" });
     ctx.db.prepare("INSERT INTO demo_runs (ip, ts) VALUES (?, ?)").run(ip, Math.floor(Date.now() / 1000));

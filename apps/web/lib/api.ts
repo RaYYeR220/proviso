@@ -92,6 +92,6 @@ export async function desk<T>(path: string, init?: RequestInit): Promise<T> {
   return r.json() as Promise<T>;
 }
 
-export function runScenario(scenario: string): Promise<{ jobId?: string; error?: string }> {
+export function runScenario(scenario: string): Promise<{ jobId?: string; recorded?: string | null; reason?: string; error?: string }> {
   return fetch(`${DESK}/api/demo/run`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ scenario }) }).then((r) => r.json());
 }

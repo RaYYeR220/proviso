@@ -21,10 +21,11 @@ export function RunPanel() {
   const go = async (id: string) => {
     setBusy(id);
     setError(null);
-    const r: { jobId?: string; error?: string } = await runScenario(id).catch(() => ({ error: "The desk is not reachable." }));
+    const r: { jobId?: string; recorded?: string | null; reason?: string; error?: string } = await runScenario(id).catch(() => ({ error: "The desk is not reachable." }));
     if (r.jobId) router.push(`/jobs/${r.jobId}`);
+    else if (r.recorded) router.push(`/jobs/${r.recorded}?recorded=1`);
     else {
-      setError(r.error ?? "Could not start.");
+      setError(r.error ?? r.reason ?? "Could not start.");
       setBusy(null);
     }
   };

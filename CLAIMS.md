@@ -26,6 +26,11 @@ Every public statement about Proviso carries one of four evidence tags:
   - a cart altered in transit (`CART_HASH_MISMATCH`);
   - a cart that pays a wallet when the user's intent requires refundability (`NOT_REFUNDABLE`).
   Job records are in [PROOF.md](PROOF.md).
+- **VERIFIED-LIVE.** These deals ran on HSK Chain mainnet; every transaction is linked in [PROOF.md](PROOF.md):
+  - a market brief, released;
+  - a filler deliverable, disputed, ruled 0% by three validators through the ERC-8004 ValidationRegistry, refunded;
+  - a no-show, refunded after the deadline.
+  Each one wrote settlement-backed ERC-8004 reputation, and a later job refused that provider (`REPUTATION_TOO_LOW`).
 - **REPRODUCIBLE.** These flows run end to end on a fork of HSK Chain mainnet with live models:
   - audit → localize: two releases;
   - market brief: release;
@@ -46,4 +51,5 @@ Every public statement about Proviso carries one of four evidence tags:
 - **NOT-CLAIMED.** Economic deterrence against frivolous disputes. There is no dispute bond.
 - **NOT-CLAIMED.** That the recipient of a USDT payment is enforced by the payer's signature. Permit2 does not sign the recipient.
 - **NOT-CLAIMED.** Protection against two colluding validators.
-- **NOT-CLAIMED.** Production volume. The live deals are demo deals with cent-sized amounts.
+- **NOT-CLAIMED.** Production volume. The live deals are demo deals with cent-sized amounts, funded from a small HSK balance
+  swapped to USDT on HSKSwap. When that wallet runs out, the site's paid demo buttons open the most recent recorded run and say so.

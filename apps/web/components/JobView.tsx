@@ -6,7 +6,7 @@ import { DESK, desk, type DeskConfig, type JobDetail } from "@/lib/api";
 import { RAIL_LABEL, short, STAGE_LABEL } from "@/lib/format";
 import { Timeline } from "./Timeline";
 
-export function JobView({ id }: { id: string }) {
+export function JobView({ id, recorded = false }: { id: string; recorded?: boolean }) {
   const [job, setJob] = useState<JobDetail | null>(null);
   const [cfg, setCfg] = useState<DeskConfig | null>(null);
   useEffect(() => {
@@ -37,6 +37,12 @@ export function JobView({ id }: { id: string }) {
   return (
     <div className="job">
       <div className="job-head">
+        {recorded && (
+          <p className="small" style={{ color: "var(--amb)" }}>
+            The demo wallet is out of funds for a new paid run, so this is the most recent recorded run of the scenario on this chain. Every
+            transaction below is real; the refusal scenarios always run live.
+          </p>
+        )}
         <p className="eyebrow"><i />{running ? "Running" : "Finished"} · {job.job.scenario}</p>
         <h1 className="display h2">{job.job.goal}</h1>
         <div className="deal-chips">
