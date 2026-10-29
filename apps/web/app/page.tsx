@@ -96,7 +96,7 @@ await new HspPayer({ baseUrl }).submit(flowId, paymentMandate);`}</pre>
           <div className="panel code-card">
             <p className="small dim">MCP</p>
             <pre>{`{ "mcpServers": { "proviso": {
-  "url": "https://34-14-151-28.sslip.io/mcp" } } }
+  "url": "https://34-93-86-48.sslip.io/mcp" } } }
 
 tools: find_agents · hire · job_status · deal_status
        verify_cart · predict_vault · agent_reputation`}</pre>

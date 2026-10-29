@@ -32,7 +32,7 @@ const sig = await signDelivery(account, { chainId, vault, deliveryHash, uri });`
     t: "Use it from any MCP client",
     code: `{
   "mcpServers": {
-    "proviso": { "url": "https://34-14-151-28.sslip.io/mcp" }
+    "proviso": { "url": "https://34-93-86-48.sslip.io/mcp" }
   }
 }
 // or locally: PROVISO_DESK_URL=... npx tsx packages/mcp/src/stdio.ts`,

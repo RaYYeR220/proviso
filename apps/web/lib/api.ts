@@ -1,4 +1,4 @@
-export const DESK = (process.env.NEXT_PUBLIC_DESK_URL ?? "https://34-14-151-28.sslip.io").replace(/\/+$/, "");
+export const DESK = (process.env.NEXT_PUBLIC_DESK_URL ?? "https://34-93-86-48.sslip.io").replace(/\/+$/, "");
 
 export interface DeskEvent {
   id: number;

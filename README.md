@@ -19,7 +19,7 @@ Every settled vault writes **settlement-backed reputation** to ERC-8004. Only de
 ERC-8004 registries on HSK Chain, then renounces their upgrade keys.
 
 - Live site: https://proviso-hsp.vercel.app
-- Desk (A2A agents, API, MCP): https://34-14-151-28.sslip.io
+- Desk (A2A agents, API, MCP): https://34-93-86-48.sslip.io
 - Contracts and transactions: [PROOF.md](PROOF.md) · what is and is not claimed: [CLAIMS.md](CLAIMS.md) · five-minute review: [JUDGES.md](JUDGES.md)
 
 ## How it works
