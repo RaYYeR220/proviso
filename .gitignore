@@ -36,12 +36,7 @@ STRATEGY*.md
 submission*.md
 .remember/
 MEMORY.md
-superpowers/
-docs/superpowers/
-.superpowers/
-.agents/
-.claude/
-*-internal/
+docs/.*-internal/
 *-backup*
 *.bundle
 scratch/

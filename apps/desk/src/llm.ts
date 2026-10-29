@@ -12,7 +12,7 @@ export interface Llm {
   json<T>(model: string, messages: ChatMessage[], schema: Record<string, unknown>, opts?: { maxTokens?: number }): Promise<T>;
 }
 
-/** Venice (OpenAI-compatible chat completions). With LLM_STUB=1 a deterministic stub answers instead. */
+/** Venice chat completions (the common /chat/completions API). With LLM_STUB=1 a deterministic stub answers instead. */
 export function makeLlm(cfg: Config, stub?: (model: string, messages: ChatMessage[], schema?: Record<string, unknown>) => string): Llm {
   async function call(model: string, messages: ChatMessage[], body: Record<string, unknown>): Promise<string> {
     if (cfg.venice.stub || !cfg.venice.apiKey) {
