@@ -1,0 +1,62 @@
+{
+  "auditor": {
+    "role": "auditor",
+    "address": "0xE1793c158608d40a27A126330Af9D573d19b1Fe3",
+    "agentId": "1",
+    "agentURI": "https://34-14-151-28.sslip.io/agents/auditor.json",
+    "registerTx": "0x2a3ebea2fa2ef978b7d3b51535de582e8c53d4bb52bf4b9ec5effa7b005e14a6",
+    "operatorTx": "0xe01427580260fba5f77c0cabf989cf297ca6deefd8761e3bf1b8c05d30e7f179"
+  },
+  "analyst": {
+    "role": "analyst",
+    "address": "0x872aF6DE63357ffaa653bC9e24913AEC7cb635eb",
+    "agentId": "2",
+    "agentURI": "https://34-14-151-28.sslip.io/agents/analyst.json",
+    "registerTx": "0x0050e81c00168b52ae3a505502d2dc04b4b781733235f84f052ba7f592419de8",
+    "operatorTx": "0x2a0bd577025049d8f619e5df69ae59ef6b27f02c1a03c198fe84f83359af1b66"
+  },
+  "localizer": {
+    "role": "localizer",
+    "address": "0x5Bc962Fcc8e63dbDe3A6Ebaa8714CedDF44dF289",
+    "agentId": "3",
+    "agentURI": "https://34-14-151-28.sslip.io/agents/localizer.json",
+    "registerTx": "0x8705d9897f87215771f4a321dc81b1355d65fe4c3e94aa9c9c2b2b1c1a4fd626",
+    "operatorTx": "0x5f10152e5a71ae3a14a8fb2e71f652ecc9a4524dbb14778668987797f79e45e4"
+  },
+  "shady": {
+    "role": "shady",
+    "address": "0x61746547653766aFE7cB718935010a42710f193E",
+    "agentId": "4",
+    "agentURI": "https://34-14-151-28.sslip.io/agents/shady.json",
+    "registerTx": "0x8826152847cd637fcc39cc2dad5774966b53c396c2fcb01594d14a2d0eed960a",
+    "operatorTx": "0x5154b259e108de1aaf8484b94a669a30d2ad86765751f4c6b13da9a80a503459"
+  },
+  "payment-agent": {
+    "role": "payment-agent",
+    "address": "0x9A712cb6353C84A7893b0A5Fd0702663a2032C21",
+    "agentId": "5",
+    "agentURI": "https://34-14-151-28.sslip.io/agents/payment-agent.json",
+    "registerTx": "0x8fec547181323c77b8898ce965fa55f8fcabe3b4acdce4927f68107f07cadb0b"
+  },
+  "validator-0": {
+    "role": "validator-0",
+    "address": "0x66770264c966fa2dC78c015820dfDc0098ECA1A6",
+    "agentId": "6",
+    "agentURI": "https://34-14-151-28.sslip.io/agents/validator-0.json",
+    "registerTx": "0x40e2c8fec1ce4982d4955408db2a9ed4c24933a86ebe7129571a67b0963bd4df"
+  },
+  "validator-1": {
+    "role": "validator-1",
+    "address": "0x7c2135d26C4527EBfD253A84E4c93852a9c60090",
+    "agentId": "7",
+    "agentURI": "https://34-14-151-28.sslip.io/agents/validator-1.json",
+    "registerTx": "0xc101b217b3873ea89790728ad1bc5614fbe667ad934c7dbbd82130d58b783fa7"
+  },
+  "validator-2": {
+    "role": "validator-2",
+    "address": "0x9b601ebD0be1E6D990EDBB788cFa58B20604bE2b",
+    "agentId": "8",
+    "agentURI": "https://34-14-151-28.sslip.io/agents/validator-2.json",
+    "registerTx": "0xb89c981f883adb7494089d5f83115af8b535477fefce099d22dfcc27c633f60c"
+  }
+}

@@ -3,11 +3,11 @@ import type { Address } from "viem";
 /** Contract addresses the site derives vault addresses against (keep in sync with contracts/deployments). */
 export const DEPLOYMENTS: Record<number, { dealFactory: Address; vaultImpl: Address; identityRegistry: Address; reputationRegistry: Address; validationRegistry: Address; usdc: Address; usdt: Address }> = {
   133: {
-    dealFactory: "0x5102481bB8b769231Edc468A6AAe610becCA0292",
-    vaultImpl: "0x7B0Dd4D1bB08b15B5D34d2C2C2d9D0F3Af139125",
-    identityRegistry: "0x76e212Cf2aF95d17D6CD40C29FD4dAea19D1F5eF",
-    reputationRegistry: "0x2C808A951957B1F0D0d066A62370932DFac788B1",
-    validationRegistry: "0xAe9E6d4dd97527B01C0410ce822Feb3eA66B4036",
+    dealFactory: "0xFEF4cF71286a43c3adcD5b59499160d729895817",
+    vaultImpl: "0xac822DD3c348a56fB529F256D04Ef03e6Ab05417",
+    identityRegistry: "0x629aca207C1e31BE5438b42f6ac446c66Dd6EdAC",
+    reputationRegistry: "0x18961833b052FCFe74805854bB494583D169B881",
+    validationRegistry: "0x75d69b137236a287ae7a93e84747ED919210184e",
     usdc: "0x8FE3cB719Ee4410E236Cd6b72ab1fCDC06eF53c6",
     usdt: "0x372325443233fEbaC1F6998aC750276468c83CC6",
   },
