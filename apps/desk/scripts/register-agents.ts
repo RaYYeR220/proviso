@@ -28,9 +28,18 @@ async function topUp(to: Address, min: bigint) {
   const bal = await client.getBalance({ address: to });
   if (bal >= min) return;
   const wallet = createWalletClient({ account: cfg.relayer, chain: chainFor(cfg), transport: http(cfg.rpcUrl) });
-  const hash = await wallet.sendTransaction({ to, value: min - bal });
-  await client.waitForTransactionReceipt({ hash });
-  console.log(`  topped up ${to} (${hash})`);
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const nonce = await client.getTransactionCount({ address: cfg.relayer.address, blockTag: "pending" });
+      const hash = await wallet.sendTransaction({ to, value: min - bal, nonce });
+      await client.waitForTransactionReceipt({ hash });
+      console.log(`  topped up ${to} (${hash})`);
+      return;
+    } catch (e) {
+      if (attempt >= 4 || !/underpriced|nonce/i.test(String((e as Error).message))) throw e;
+      await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)));
+    }
+  }
 }
 
 for (const r of roles) {
@@ -52,6 +61,8 @@ for (const r of roles) {
     }
     if (agentId === undefined) throw new Error(`no Registered event for ${r.role}`);
     agents[r.role] = { role: r.role, address: r.account.address, agentId: agentId.toString(), agentURI: uri, registerTx: tx } satisfies AgentIdentity;
+    writeFileSync(agentsFile(cfg.chainId), JSON.stringify(agents, null, 2) + "
+");
     console.log(`${r.role}: agent #${agentId} (${tx})`);
   } else if (existing.agentURI !== uri) {
     const tx = await chain.write(r.account, { address: cfg.deployment.identityRegistry, abi: identityRegistryAbi, functionName: "setAgentURI", args: [BigInt(existing.agentId), uri] });
