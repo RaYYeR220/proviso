@@ -7,6 +7,8 @@
 .scenario:focus-visible { outline: 1px solid var(--amb); outline-offset: -1px; }
 .scenario[disabled] { cursor: wait; opacity: 0.6; }
 .scenario .dim { font-size: 14px; line-height: 1.55; }
+.scenario-note { grid-column: span 2; background: var(--g0); padding: 26px; display: grid; gap: 12px; align-content: start; }
+.scenario-note .dim { font-size: 14px; line-height: 1.55; max-width: 560px; }
 .s-out { display: flex; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 8px; border-top: 1px solid var(--hair-2); }
 .s-out .mono { color: var(--amb); }
 .s-go { font-size: 13px; color: var(--ink); }
@@ -87,6 +89,7 @@
 
 @media (max-width: 900px) {
   .scenarios, .agents, .votes, .deal-grid, .deal-cols, .stats { grid-template-columns: 1fr; }
+  .scenario-note { grid-column: auto; }
   .kv { grid-template-columns: 1fr; gap: 2px; }
   .ev { grid-template-columns: 18px 1fr; }
   .ev-time { display: none; }

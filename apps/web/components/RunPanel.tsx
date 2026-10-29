@@ -42,6 +42,13 @@ export function RunPanel() {
             </span>
           </button>
         ))}
+        <div className="scenario-note">
+          <p className="eyebrow"><i />What runs live</p>
+          <p className="dim">
+            The three refusals run live on mainnet and cost nothing: the paying agent refuses before it signs. The paid scenarios spend the
+            demo wallet's USDT; when it is empty, the button opens the most recent recorded mainnet run of that scenario and the page says so.
+          </p>
+        </div>
       </div>
       {error && <p className="small" style={{ color: "var(--bad)", marginTop: 16 }}>{error}</p>}
     </>
