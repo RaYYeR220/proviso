@@ -49,7 +49,7 @@ on the **self-relay** rail: the desk broadcasts the payer's signed Permit2 autho
 
 ### 1. Market brief → released
 - Job: [job-0ffcf789](https://proviso-hsp.vercel.app/jobs/job-0ffcf789-4163-4ccf-989d-f283955ef4e8). Vault: [0xfCA945…a581](https://hsk.blockscout.com/address/0xfCA9454b2dD8a302960193821156C52b5aBfa581).
-- Funding (Permit2, payer → vault): [0x972e2aaf…](https://hsk.blockscout.com/tx/0x972e2aaf2fa469e4641106ed12feb7337f0372c798190fddada4e7a277734091). Vault opened: [0x0274574c…](https://hsk.blockscout.com/tx/0x0274574ce4f026194cada5e0a410c9fe7ddacf4b93f08a268ee3901da512ce20).
+- Funding (Permit2, payer → vault): [0x972e2aaf…](https://hsk.blockscout.com/tx/0x972e2aaf2fa469e4641106ed12feb7337f0372c798190fddada4e7a277734091). Vault opened: [0x6d322ed2…](https://hsk.blockscout.com/tx/0x6d322ed205a46afee7a9591049d525784a02ef7dbbf9d269d4a066796b09bb28).
 - Provider signed the quote: [0xee2af5dc…](https://hsk.blockscout.com/tx/0xee2af5dc10cfe13218dd0ca6bd92b7a46b5f05e14bb3c2c0716036ab53e70c6e). Deliverable hash committed: [0x42ce362c…](https://hsk.blockscout.com/tx/0x42ce362c1c92f45d88aa83da6d9e055da9e8158abc1b3536f23774f95deb7780).
 - Accepted by the payer, which releases the escrow: [0x757670a3…](https://hsk.blockscout.com/tx/0x757670a3fd23020992d6a144b69a339dc07109dc90706abf720b65a66ecee94c).
 - ERC-8004 feedback, provider 100: [0x655c5f48…](https://hsk.blockscout.com/tx/0x655c5f48f0885eb1ea5ae834e0c0615a1456eec62e5009ee0dddea8e2ed23d96).
