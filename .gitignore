@@ -1,0 +1,57 @@
+# deps / build
+node_modules/
+dist/
+.next/
+out/
+cache/
+coverage/
+*.tsbuildinfo
+.turbo/
+.vercel/
+
+# foundry
+contracts/out/
+contracts/cache/
+contracts/broadcast/*/31337/
+contracts/broadcast/**/dry-run/
+
+# env / secrets
+.env
+.env.*
+!.env.example
+*.pem
+secrets/
+
+# local data
+*.sqlite
+*.sqlite-*
+*.db
+data/
+
+# working / internal artifacts (never published)
+BRIEF.md
+ALTERNATIVES.md
+NOTES.md
+STRATEGY*.md
+submission*.md
+.remember/
+MEMORY.md
+superpowers/
+docs/superpowers/
+.superpowers/
+.agents/
+.claude/
+*-internal/
+*-backup*
+*.bundle
+scratch/
+ui-prototypes/
+mockups/
+design-ref/
+variants/
+screencast/
+.playwright-mcp/
+
+# os
+.DS_Store
+Thumbs.db
