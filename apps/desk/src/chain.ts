@@ -54,7 +54,11 @@ export function makeChain(cfg: Config): Chain {
     for (let attempt = 0; ; attempt++) {
       try {
         const nonce = await publicClient.getTransactionCount({ address: account.address, blockTag: "pending" });
-        const hash = await wallet.writeContract({ ...(request as object), nonce } as never);
+        // Nodes reserve gasLimit × maxFeePerGas up front; the default (2× base fee) halves what a lean wallet can send.
+        const block = await publicClient.getBlock();
+        const base = block.baseFeePerGas ?? 0n;
+        const fees = base > 0n ? { maxFeePerGas: (base * 11n) / 10n + 1000n, maxPriorityFeePerGas: 1000n } : {};
+        const hash = await wallet.writeContract({ ...(request as object), nonce, ...fees } as never);
         const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 120_000 });
         if (receipt.status !== "success") throw new Error(`tx ${hash} reverted`);
         return hash;

@@ -60,7 +60,7 @@ export class Keeper {
           try {
             await this.tryFund(deal, terms.amount, Number(terms.deliverBy));
           } catch (e) {
-            addEvent(this.ctx.db, { vault: deal.vault, jobId: deal.job_id, kind: "keeper-error", data: { message: String((e as Error).message ?? e).slice(0, 400) } });
+            this.reportError(deal, e);
           }
         }),
       );
@@ -81,13 +81,23 @@ export class Keeper {
         try {
           await this.step(deal);
         } catch (e) {
-          addEvent(this.ctx.db, { vault: deal.vault, jobId: deal.job_id, kind: "keeper-error", data: { message: String((e as Error).message ?? e).slice(0, 400) } });
+          this.reportError(deal, e);
         }
       }
     } finally {
       this.running = false;
       this.wake.clear();
     }
+  }
+
+  /** Records a keeper failure once per distinct message, so a retry loop does not flood the deal's timeline. */
+  private reportError(deal: DealRow, e: unknown) {
+    const message = String((e as Error).message ?? e).split(/\r?\n/)[0]!.slice(0, 300);
+    const last = this.ctx.db
+      .prepare("SELECT data_json FROM events WHERE vault = ? AND kind = 'keeper-error' ORDER BY id DESC LIMIT 1")
+      .get(deal.vault) as { data_json: string } | undefined;
+    if (last && JSON.parse(last.data_json).message === message) return;
+    addEvent(this.ctx.db, { vault: deal.vault, jobId: deal.job_id, kind: "keeper-error", data: { message } });
   }
 
   async step(deal: DealRow): Promise<void> {
@@ -164,17 +174,29 @@ export class Keeper {
       args: [terms],
     });
     addEvent(db, { vault: deal.vault, jobId: deal.job_id, kind: "vault-opened", data: {}, tx });
-    // Hosted providers acknowledge the exact terms they quoted; without this the vault never rates them.
-    const hosted = cfg.providers.find((p) => getAddress(p.account.address) === getAddress(terms.provider));
-    if (hosted) {
-      const vault = deal.vault as Address;
-      const termsHash = keccak256(encodeTerms(terms));
-      const sig = await signQuote(hosted.account, { chainId: cfg.chainId, vault, termsHash });
-      const ctx2 = await chain.write(cfg.relayer, { address: vault, abi: dealVaultAbi, functionName: "confirm", args: [sig] });
-      addEvent(db, { vault, jobId: deal.job_id, kind: "quote-confirmed", data: { provider: hosted.id }, tx: ctx2 });
-    }
     const state = await readVault(chain.publicClient, deal.vault as Address);
     updateDeal(db, deal.vault, { stage: state.status === "Open" ? "funded" : state.status.toLowerCase() });
+    await this.confirmQuote(deal, terms);
+  }
+
+  /** Hosted providers acknowledge the exact terms they quoted; without this the vault never rates them. */
+  private async confirmQuote(deal: DealRow, terms: ReturnType<typeof termsFromJson>) {
+    const { cfg, chain, db } = this.ctx;
+    const hosted = cfg.providers.find((p) => getAddress(p.account.address) === getAddress(terms.provider));
+    if (!hosted) return;
+    const vault = deal.vault as Address;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const sig = await signQuote(hosted.account, { chainId: cfg.chainId, vault, termsHash: keccak256(encodeTerms(terms)) });
+        const tx = await chain.write(cfg.relayer, { address: vault, abi: dealVaultAbi, functionName: "confirm", args: [sig] });
+        addEvent(db, { vault, jobId: deal.job_id, kind: "quote-confirmed", data: { provider: hosted.id }, tx });
+        return;
+      } catch (e) {
+        // a lagging RPC node may not see the freshly deployed vault yet
+        await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)));
+        if (attempt === 2) this.reportError(deal, e);
+      }
+    }
   }
 
   private async settle(deal: DealRow, state: VaultState) {
