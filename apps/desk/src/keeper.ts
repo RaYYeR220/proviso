@@ -163,17 +163,23 @@ export class Keeper {
     let sender: Address | null = null;
     if (fundingTx) sender = (await chain.publicClient.getTransaction({ hash: fundingTx })).from;
     const rail = sender ? railOf(this.ctx, sender) : "direct";
-    updateDeal(db, deal.vault, { funding_tx: fundingTx ?? null, funding_sender: sender, rail });
-    addEvent(db, { vault: deal.vault, jobId: deal.job_id, kind: "funded", data: { amount: balance.toString(), sender, rail }, tx: fundingTx ?? null });
+    // A pass that failed after this point is retried on the next tick: it must not log the funding or open twice.
+    const logged = (kind: string) => !!db.prepare("SELECT 1 FROM events WHERE vault = ? AND kind = ? LIMIT 1").get(deal.vault, kind);
+    if (!logged("funded")) {
+      updateDeal(db, deal.vault, { funding_tx: fundingTx ?? null, funding_sender: sender, rail });
+      addEvent(db, { vault: deal.vault, jobId: deal.job_id, kind: "funded", data: { amount: balance.toString(), sender, rail }, tx: fundingTx ?? null });
+    }
 
     // Opening never reverts; an underfunded or late vault opens straight into its refund path.
-    const tx = await chain.write(cfg.relayer, {
-      address: cfg.deployment.dealFactory,
-      abi: dealFactoryAbi,
-      functionName: "open",
-      args: [terms],
-    });
-    addEvent(db, { vault: deal.vault, jobId: deal.job_id, kind: "vault-opened", data: {}, tx });
+    if (!logged("vault-opened")) {
+      const tx = await chain.write(cfg.relayer, {
+        address: cfg.deployment.dealFactory,
+        abi: dealFactoryAbi,
+        functionName: "open",
+        args: [terms],
+      });
+      addEvent(db, { vault: deal.vault, jobId: deal.job_id, kind: "vault-opened", data: {}, tx });
+    }
     const state = await readVault(chain.publicClient, deal.vault as Address);
     updateDeal(db, deal.vault, { stage: state.status === "Open" ? "funded" : state.status.toLowerCase() });
     await this.confirmQuote(deal, terms);
