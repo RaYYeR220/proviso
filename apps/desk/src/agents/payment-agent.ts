@@ -10,6 +10,7 @@ import {
   EXTENSIONS,
   findData,
   hashIntent,
+  HSK,
   HspPayer,
   settlementReputation,
   signAccept,
@@ -31,6 +32,7 @@ import type { Keeper } from "../keeper.ts";
 import type { TaskSpec } from "../merchant.ts";
 import { checkDeliverable } from "./acceptance.ts";
 import { a2aBase } from "./cards.ts";
+import { erc20Abi } from "../chain.ts";
 import { SAMPLE_CONTRACT } from "./skills.ts";
 
 export type Scenario = "audit" | "brief" | "shady" | "noshow" | "tampered" | "direct" | "reputation";
@@ -104,7 +106,8 @@ function hspToken(ctx: Ctx): HspToken {
     decimals: t.decimals,
     version: t.version,
     payment_protocol: t.protocol,
-    permit2_spender: "0x1aaA5E4371aAdf96bEfb5bd2Af4d896FD16915Ea",
+    // Permit2 lets only the named spender pull: the HSP relayer on the gateway rail, our relayer when self-relaying.
+    permit2_spender: ctx.cfg.hspMode === "gateway" ? HSK.hspRelayer : ctx.cfg.relayer.address,
   };
 }
 
@@ -268,7 +271,11 @@ async function hire(
   }
   addEvent(ctx.db, { vault, jobId: a.jobId, kind: "cart-verified", data: { vault: verdict.vault, providerReputation: { count: rep.count.toString(), average: rep.average } } });
 
-  const nonce = keccak256(encodeAbiParameters([{ type: "address" }, { type: "string" }], [vault, cart.contents.id]));
+  if (!(await walletReady(ctx, a.jobId, vault, terms.amount))) return { outcome: "failed", vault, amount: 0n };
+  const nonce =
+    cfg.token.protocol === "eip3009"
+      ? keccak256(encodeAbiParameters([{ type: "address" }, { type: "string" }], [vault, cart.contents.id]))
+      : BigInt(keccak256(encodeAbiParameters([{ type: "address" }, { type: "string" }], [vault, cart.contents.id])));
   const { paymentMandate } = await buildPaymentMandate({ cart, account: cfg.paymentAgent, token: hspToken(ctx), nonce });
   updateDeal(ctx.db, vault, { payment_mandate_json: JSON.stringify(paymentMandate) });
   addEvent(ctx.db, { vault, jobId: a.jobId, kind: "payment-mandate-signed", data: { nonce, protocol: cfg.token.protocol } });
@@ -341,6 +348,28 @@ async function hire(
   addEvent(ctx.db, { vault, jobId: a.jobId, kind: "disputed", data: { reasonHash: reason.hash, uri: reason.uri, reasons: check.reasons }, tx });
   keeper.nudge(vault);
   return { outcome: "disputed", vault, amount: terms.amount };
+}
+
+/**
+ * The paying agent checks its own wallet before signing: enough of the token, and for Permit2 tokens an allowance
+ * to the canonical Permit2 contract (granted once, on chain, from the agent's wallet).
+ */
+async function walletReady(ctx: Ctx, jobId: string, vault: Address, amount: bigint): Promise<boolean> {
+  const { cfg, chain } = ctx;
+  const owner = cfg.paymentAgent.address;
+  const balance = (await chain.publicClient.readContract({ address: cfg.token.address, abi: erc20Abi, functionName: "balanceOf", args: [owner] })) as bigint;
+  if (balance < amount) {
+    addEvent(ctx.db, { vault, jobId, kind: "wallet-empty", data: { balance: balance.toString(), needed: amount.toString(), token: cfg.token.symbol } });
+    return false;
+  }
+  if (cfg.token.protocol === "permit2") {
+    const allowance = (await chain.publicClient.readContract({ address: cfg.token.address, abi: erc20Abi, functionName: "allowance", args: [owner, HSK.permit2] })) as bigint;
+    if (allowance < amount) {
+      const tx = await chain.write(cfg.paymentAgent, { address: cfg.token.address, abi: erc20Abi, functionName: "approve", args: [HSK.permit2, 2n ** 256n - 1n] });
+      addEvent(ctx.db, { vault, jobId, kind: "permit2-approved", data: { token: cfg.token.symbol }, tx });
+    }
+  }
+  return true;
 }
 
 /** A merchant that wants the money sent straight to its wallet: valid signature, no escrow, so the agent refuses. */

@@ -15,6 +15,8 @@ import type { Config } from "./config.ts";
 
 export const erc20Abi = parseAbi([
   "function balanceOf(address) view returns (uint256)",
+  "function allowance(address,address) view returns (uint256)",
+  "function approve(address,uint256) returns (bool)",
   "function transfer(address,uint256) returns (bool)",
   "event Transfer(address indexed from, address indexed to, uint256 value)",
 ]);

@@ -108,6 +108,10 @@ export function describe(kind: string, d: Record<string, any> | null): { title: 
       return { title: "No delivery", body: "The escrow refunds after the deadline", tone: "warn" };
     case "reputation-written":
       return { title: "Settlement-backed reputation written (ERC-8004)", body: `Outcome: ${x.outcome?.status}${x.outcome?.providerSharePct !== undefined ? `, provider ${x.outcome.providerSharePct}%` : ""}`, tone: "ok" };
+    case "wallet-empty":
+      return { title: "Demo wallet is empty", body: `The paying agent holds ${usd(x.balance)} ${x.token}; this deal needs ${usd(x.needed)}. Nothing was signed.`, tone: "warn" };
+    case "permit2-approved":
+      return { title: `Paying agent approved Permit2 for ${x.token}`, tone: "muted" };
     case "expired-unpaid":
       return { title: "Cart expired unpaid", body: "No money was ever sent", tone: "muted" };
     case "job-finished":
