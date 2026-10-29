@@ -13,14 +13,15 @@ whale=0x62cB71582F277ef581e5F282F78e482fa347Bde7
 
 [ "$(cast chain-id --rpc-url $rpc)" = "31337" ] || { echo "no 31337 fork at $rpc" >&2; exit 1; }
 
-cd "$root/contracts"
-PRIVATE_KEY=$RELAYER_PRIVATE_KEY USDC=$usdc USDT=$usdt forge script script/DeployProviso.s.sol --rpc-url $rpc --broadcast -q
-cd "$root"
-
+# gas first: the deployer is the relayer, whose mainnet balance alone may not cover the deployment
 for k in RELAYER PAYMENT_AGENT AUDITOR ANALYST LOCALIZER SHADY VALIDATOR_0 VALIDATOR_1 VALIDATOR_2; do
   v="${k}_PRIVATE_KEY"; a=$(cast wallet address --private-key "${!v}")
   cast rpc anvil_setBalance "$a" 0x56BC75E2D63100000 --rpc-url $rpc >/dev/null
 done
+
+cd "$root/contracts"
+PRIVATE_KEY=$RELAYER_PRIVATE_KEY USDC=$usdc USDT=$usdt forge script script/DeployProviso.s.sol --rpc-url $rpc --broadcast -q
+cd "$root"
 pa=$(cast wallet address --private-key "$PAYMENT_AGENT_PRIVATE_KEY")
 cast rpc anvil_impersonateAccount $whale --rpc-url $rpc >/dev/null
 cast send $usdc "transfer(address,uint256)" "$pa" 5000000 --from $whale --unlocked --rpc-url $rpc >/dev/null

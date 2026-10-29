@@ -195,15 +195,21 @@ export const localizer: SkillDef = {
   examples: ["Translate this audit summary into Hindi"],
   async run(ctx, input) {
     const text = String(input.text ?? "");
-    const out = await ctx.llm.text(ctx.cfg.models.provider, [
-      {
-        role: "system",
-        content:
-          "Translate the user's text into Hindi (Devanagari). Keep code identifiers, function names, numbers, addresses and severity labels in English. " +
-          "Output only the translation in markdown.",
-      },
-      { role: "user", content: text.slice(0, 12_000) },
-    ]);
+    const ask = (insist: string) =>
+      ctx.llm.text(ctx.cfg.models.provider, [
+        {
+          role: "system",
+          content:
+            "Translate the user's text into Hindi (Devanagari). Keep code identifiers, function names, numbers, addresses and severity labels in English. " +
+            "Output only the translation in markdown." +
+            insist,
+        },
+        { role: "user", content: text.slice(0, 12_000) },
+      ]);
+    let out = await ask("");
+    // A model sometimes echoes the source untranslated; the buyer's check would reject that, so the provider looks
+    // before it delivers and asks once more.
+    if (!/[ऀ-ॿ]/.test(out)) out = await ask(" The previous answer was not in Hindi. Write every sentence in Devanagari script.");
     return { format: "markdown", content: out, meta: { sourceChars: text.length } };
   },
 };
