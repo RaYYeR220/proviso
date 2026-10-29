@@ -115,7 +115,15 @@ export function describe(kind: string, d: Record<string, any> | null): { title: 
     case "expired-unpaid":
       return { title: "Cart expired unpaid", body: "No money was ever sent", tone: "muted" };
     case "job-finished":
-      return { title: `Job ${x.status}`, tone: "muted" };
+      return {
+        title:
+          x.status === "done"
+            ? "Job finished: every deal released"
+            : x.status === "refused"
+              ? "Job ended: refused before paying"
+              : "Job finished with a refusal, refund or ruling",
+        tone: "muted",
+      };
     case "job-error":
     case "keeper-error":
       return { title: kind === "job-error" ? "Job error" : "Keeper retrying", body: x.message, tone: "bad" };
