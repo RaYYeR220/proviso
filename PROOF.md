@@ -44,15 +44,48 @@ can file dispute requests for it. Every `agentURI` resolves to a live registrati
 ## Deals on mainnet
 
 The desk at https://34-14-151-28.sslip.io runs against these contracts. Each job's timeline is public at
-`/api/jobs/<id>`, and the site renders it at `/jobs/<id>`.
+`/api/jobs/<id>`, and the site renders it at `/jobs/<id>`. Amounts are cents of USDT on purpose. The deals below are funded
+on the **self-relay** rail: the desk broadcasts the payer's signed Permit2 authorization. See [CLAIMS.md](CLAIMS.md).
 
-| Scenario | Outcome | Record |
+### 1. Market brief → released
+- Job: [job-0ffcf789](https://proviso-hsp.vercel.app/jobs/job-0ffcf789-4163-4ccf-989d-f283955ef4e8). Vault: [0xfCA945…a581](https://hsk.blockscout.com/address/0xfCA9454b2dD8a302960193821156C52b5aBfa581).
+- Funding (Permit2, payer → vault): [0x972e2aaf…](https://hsk.blockscout.com/tx/0x972e2aaf2fa469e4641106ed12feb7337f0372c798190fddada4e7a277734091). Vault opened: [0x0274574c…](https://hsk.blockscout.com/tx/0x0274574ce4f026194cada5e0a410c9fe7ddacf4b93f08a268ee3901da512ce20).
+- Provider signed the quote: [0xee2af5dc…](https://hsk.blockscout.com/tx/0xee2af5dc10cfe13218dd0ca6bd92b7a46b5f05e14bb3c2c0716036ab53e70c6e). Deliverable hash committed: [0x42ce362c…](https://hsk.blockscout.com/tx/0x42ce362c1c92f45d88aa83da6d9e055da9e8158abc1b3536f23774f95deb7780).
+- Accepted by the payer, which releases the escrow: [0x757670a3…](https://hsk.blockscout.com/tx/0x757670a3fd23020992d6a144b69a339dc07109dc90706abf720b65a66ecee94c).
+- ERC-8004 feedback, provider 100: [0x655c5f48…](https://hsk.blockscout.com/tx/0x655c5f48f0885eb1ea5ae834e0c0615a1456eec62e5009ee0dddea8e2ed23d96).
+
+### 2. Filler deliverable → disputed → 2-of-3 court → refunded
+- Job: [job-af957134](https://proviso-hsp.vercel.app/jobs/job-af957134-32aa-4834-9380-ebd12ce6be47). Vault: [0xE1877b…e184](https://hsk.blockscout.com/address/0xE1877b02596Fa7D2b09aF0595eEf46FDDb42e184).
+- Funding: [0x72394f69…](https://hsk.blockscout.com/tx/0x72394f698e670ce0716d5815335ee0dcc9dd4c852fc04a8202ab502676e5dc6f). Delivery committed: [0xfa74217e…](https://hsk.blockscout.com/tx/0xfa74217e0b7bd9dcf85f3cd7d9f18978c802b06b633aef248bb047149dd78347). Disputed by the payer: [0x3a688547…](https://hsk.blockscout.com/tx/0x3a6885470fc12e8e8181361d99a6fa65e7b340a6c612ace948fef0f06c4ae3a5).
+- ERC-8004 validation requests: [A](https://hsk.blockscout.com/tx/0x613a01ad65a39a99af373770d42822246ba2dbaf2665e0f6b78343dcb62fb584) · [B](https://hsk.blockscout.com/tx/0xb39c0326f2dae22663c6815aac7df59d176de56701c4a2ab0665ad9821b1bf06) · [C](https://hsk.blockscout.com/tx/0x1bd997803496895c4083eac2ffb9659ec11fa596abba8f8ef1ef8747e5a94aa8).
+- Responses from three validators running three different model families, each voting 0%: [A (gemini)](https://hsk.blockscout.com/tx/0x713d4123685a4a750eb0ffa5a6dd4e13a437800bffb6176f6640a2076a27b22a) · [B (qwen)](https://hsk.blockscout.com/tx/0xe57346d782a3d727e3f526a83aebc5d14599a7f7358df5656252d4fbb41545c9) · [C (glm)](https://hsk.blockscout.com/tx/0x3cb8f04ec8f09a3445dec501826f2035987dc5c5ade5cd9ffbc4c99e0dfc7ff5).
+- Resolved at 0%: the payer is refunded minus the court fee, and the majority validators are paid: [0x816e1179…](https://hsk.blockscout.com/tx/0x816e1179451b5cfbbe1fdcaa98f0e513b39a19523d31e66d682d7c33ce1e4da2).
+- ERC-8004 feedback, provider 0: [0xd53a5817…](https://hsk.blockscout.com/tx/0xd53a58171cb234685a3dc951f326b2a0d688a77612dae93357168533d3693361).
+
+### 3. Provider never delivers → refunded
+- Job: [job-65bfdc8c](https://proviso-hsp.vercel.app/jobs/job-65bfdc8c-d849-40e6-913a-223334dc4764). Vault: [0xC78661…C85B](https://hsk.blockscout.com/address/0xC786615d11cdE422161CB6C55c31f01a0B5DC85B).
+- Funding: [0xfdc224d9…](https://hsk.blockscout.com/tx/0xfdc224d9970c5ec7f88b2f9962b7be75182200205e29b660dd94e66f9ac8159d). Provider signed the quote: [0x5ea88767…](https://hsk.blockscout.com/tx/0x5ea88767c991cbafbe25698ce2c51d476dbd6474fdda67dc9a4ef247138648ff).
+- Deadline passed, so anyone could call `finalize`; the full refund: [0x607e5c1f…](https://hsk.blockscout.com/tx/0x607e5c1fb24c42062d29ba486a5cc5a87c1026f50b7b50540c221b43d2953e63).
+- ERC-8004 feedback, provider 0: [0x1ee3601d…](https://hsk.blockscout.com/tx/0x1ee3601d1e911f8e90b76c820eb23e980ddb088ead7b7daf570d108da1334fab).
+
+### 4. Refusals: nothing signed, no transaction
+| Scenario | Code | Record |
 |---|---|---|
-| Cart tampered in transit | Refused `CART_HASH_MISMATCH`. Nothing signed; the escrow was never funded. | [job](https://proviso-hsp.vercel.app/jobs/job-3e69c518-3b63-4d9b-a4e1-ef2f9261749c) |
-| Merchant asks to be paid directly | Refused `NOT_REFUNDABLE`. Nothing signed. | [job](https://proviso-hsp.vercel.app/jobs/job-0cd6696b-f646-419c-aa93-95c0977d6439) |
+| Cart tampered in transit | `CART_HASH_MISMATCH` | [job](https://proviso-hsp.vercel.app/jobs/job-3e69c518-3b63-4d9b-a4e1-ef2f9261749c) |
+| Merchant asks to be paid directly | `NOT_REFUNDABLE` | [job](https://proviso-hsp.vercel.app/jobs/job-0cd6696b-f646-419c-aa93-95c0977d6439) |
+| Provider with a bad record (0/100 over the two deals above, read from ERC-8004) | `REPUTATION_TOO_LOW` | [job](https://proviso-hsp.vercel.app/jobs/job-dfb324e8-c89e-4e50-99c3-d11188556a19) |
 
-A refusal has no transaction, and that is the point. What can be checked is that the vault named in the tampered cart has no code
-and no balance on chain.
+### Settlement-backed reputation on mainnet
+Query the reputation registry directly. Only feedback written by the deal factory counts, and Analyst is agent 1.
+
+```
+cast call 0xb41B55D151bbE430b690cdFbf2a0A9D439b22a54 "getSummary(uint256,address[],string,string)(uint64,int128,uint8)" 1 "[0xE7466dd955329203bcB996bA89Da8882E2cAB263]" proviso.settlement "" --rpc-url https://mainnet.hsk.xyz
+```
+
+| Agent | Settled deals | Average |
+|---|---|---|
+| Analyst (1) | 1 | 100 |
+| Shady (3) | 2 | 0 |
 
 ## The same flows end to end, on a fork of mainnet
 
