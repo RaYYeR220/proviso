@@ -15,6 +15,11 @@ contract DealFactory {
     uint16 public constant MAX_FEE_BPS = 1_000;
     uint16 public constant MAX_COURT_FEE_BPS = 1_000;
     uint32 public constant MIN_WINDOW = 60;
+    uint32 public constant MAX_WINDOW = 30 days;
+    uint64 public constant MAX_HORIZON = 90 days;
+    /// Gas forwarded to each ERC-8004 feedback write; settle() refuses to run with less, so a caller cannot
+    /// starve the write into the catch branch and erase an outcome.
+    uint256 public constant FEEDBACK_GAS = 500_000;
 
     address public immutable vaultImpl;
     address public immutable feeRecipient;
@@ -23,6 +28,8 @@ contract DealFactory {
     IValidationRegistry public immutable validation;
     address public immutable usdc;
     address public immutable usdt;
+    /// The only caller whose evidence URI is attached to reputation feedback; values never come from a caller.
+    address public immutable settler;
 
     mapping(address vault => bool) public isVault;
     mapping(address vault => bool) public settled;
@@ -44,6 +51,11 @@ contract DealFactory {
     error NotVault();
     error NotTerminal();
     error AlreadySettled();
+    error ZeroAddress();
+    error InsufficientGas();
+
+    event ReputationSkipped(address indexed vault, RefundReason reason);
+    event FeedbackFailed(address indexed vault, uint256 agentId);
 
     constructor(
         address feeRecipient_,
@@ -51,8 +63,13 @@ contract DealFactory {
         address reputation_,
         address validation_,
         address usdc_,
-        address usdt_
+        address usdt_,
+        address settler_
     ) {
+        if (
+            feeRecipient_ == address(0) || identity_ == address(0) || reputation_ == address(0)
+                || validation_ == address(0) || usdc_ == address(0) || usdt_ == address(0) || settler_ == address(0)
+        ) revert ZeroAddress();
         vaultImpl = address(new DealVault());
         feeRecipient = feeRecipient_;
         identity = IIdentityRegistry(identity_);
@@ -60,6 +77,7 @@ contract DealFactory {
         validation = IValidationRegistry(validation_);
         usdc = usdc_;
         usdt = usdt_;
+        settler = settler_;
     }
 
     /// @notice The address a deal's money must be sent to.
@@ -90,10 +108,13 @@ contract DealFactory {
             }
         }
         if (t.feeBps > MAX_FEE_BPS || t.courtFeeBps > MAX_COURT_FEE_BPS) return (false, "fees");
-        if (t.challengeWindow < MIN_WINDOW || t.courtWindow < MIN_WINDOW) return (false, "windows");
-        if (t.deliverBy <= block.timestamp) return (false, "deliverBy");
-        if (!_agentExists(t.providerAgentId)) return (false, "providerAgent");
-        if (!_agentExists(t.payerAgentId)) return (false, "payerAgent");
+        if (
+            t.challengeWindow < MIN_WINDOW || t.courtWindow < MIN_WINDOW || t.challengeWindow > MAX_WINDOW
+                || t.courtWindow > MAX_WINDOW
+        ) return (false, "windows");
+        if (t.deliverBy <= block.timestamp || t.deliverBy > block.timestamp + MAX_HORIZON) return (false, "deliverBy");
+        if (!_agentOf(t.providerAgentId, t.provider)) return (false, "providerAgent");
+        if (!_agentOf(t.payerAgentId, t.payer)) return (false, "payerAgent");
         return (true, "");
     }
 
@@ -108,30 +129,49 @@ contract DealFactory {
         if (!v.isTerminal()) revert NotTerminal();
         settled[vault] = true;
 
-        Status s = v.status();
+        // Reputation is only written for deals that were actually funded, and never for a court that failed to
+        // rule (that says nothing about either party). Invalid terms may name identities that are not the parties.
         RefundReason why = v.refundReason();
-        if (why == RefundReason.InvalidTerms) return;
+        if (why == RefundReason.InvalidTerms || why == RefundReason.NotFunded || why == RefundReason.NoQuorum) {
+            emit ReputationSkipped(vault, why);
+            return;
+        }
 
+        Status s = v.status();
         int128 providerValue = int128(uint128(v.providerSharePct()));
         int128 payerValue = 100;
-        string memory outcome;
+        string memory outcome = "refunded-nodelivery";
         if (s == Status.Released) {
             outcome = "released";
         } else if (s == Status.Resolved) {
             outcome = "resolved";
             payerValue = 100 - providerValue;
-        } else {
-            outcome = why == RefundReason.NoQuorum ? "refunded-noquorum" : "refunded-nodelivery";
         }
 
+        (string memory uri, bytes32 hash_) = msg.sender == settler ? (feedbackURI, feedbackHash) : ("", bytes32(0));
         Terms memory t = v.terms();
-        try reputation.giveFeedback(
-            t.providerAgentId, providerValue, 0, "proviso.settlement", outcome, "", feedbackURI, feedbackHash
-        ) {} catch {}
-        try reputation.giveFeedback(
-            t.payerAgentId, payerValue, 0, "proviso.payer", outcome, "", feedbackURI, feedbackHash
-        ) {} catch {}
+        // A provider that never acknowledged these terms (no signed quote, no delivery) is not rated by them.
+        if (v.providerCommitted()) {
+            _feedback(vault, t.providerAgentId, providerValue, "proviso.settlement", outcome, uri, hash_);
+        }
+        _feedback(vault, t.payerAgentId, payerValue, "proviso.payer", outcome, uri, hash_);
         emit ReputationWritten(vault, t.providerAgentId, t.payerAgentId, providerValue, payerValue);
+    }
+
+    function _feedback(
+        address vault,
+        uint256 agentId,
+        int128 value,
+        string memory tag1,
+        string memory tag2,
+        string memory uri,
+        bytes32 hash_
+    ) private {
+        if (gasleft() < FEEDBACK_GAS + 30_000) revert InsufficientGas();
+        try reputation.giveFeedback{gas: FEEDBACK_GAS}(agentId, value, 0, tag1, tag2, "", uri, hash_) {}
+        catch {
+            emit FeedbackFailed(vault, agentId);
+        }
     }
 
     /// @notice The ERC-8004 validation request hash a provider must use for panel member `i` of `vault`.
@@ -139,11 +179,33 @@ contract DealFactory {
         return keccak256(abi.encode(vault, i, salt));
     }
 
-    function _agentExists(uint256 agentId) private view returns (bool) {
-        try identity.ownerOf(agentId) returns (address owner) {
-            return owner != address(0);
+    /// The identity must belong to the party (owner or its registered agent wallet), and must not have approved
+    /// this factory, which would let it veto its own feedback.
+    function _agentOf(uint256 agentId, address party) private view returns (bool) {
+        address owner;
+        try identity.ownerOf(agentId) returns (address o) {
+            owner = o;
         } catch {
             return false;
         }
+        if (owner == address(0)) return false;
+        bool bound = owner == party;
+        if (!bound) {
+            try identity.getAgentWallet(agentId) returns (address w) {
+                bound = w == party;
+            } catch {}
+        }
+        if (!bound) return false;
+        try identity.isApprovedForAll(owner, address(this)) returns (bool all) {
+            if (all) return false;
+        } catch {
+            return false;
+        }
+        try identity.getApproved(agentId) returns (address one) {
+            if (one == address(this)) return false;
+        } catch {
+            return false;
+        }
+        return true;
     }
 }

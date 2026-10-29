@@ -4,6 +4,9 @@ pragma solidity 0.8.28;
 /// @notice The parts of the ERC-8004 registries Proviso reads and writes.
 interface IIdentityRegistry {
     function ownerOf(uint256 agentId) external view returns (address);
+    function getAgentWallet(uint256 agentId) external view returns (address);
+    function getApproved(uint256 agentId) external view returns (address);
+    function isApprovedForAll(address owner, address operator) external view returns (bool);
 }
 
 interface IReputationRegistry {

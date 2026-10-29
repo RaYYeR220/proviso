@@ -56,6 +56,7 @@ contract VaultTest is Base {
         assertEq(uint8(v.status()), uint8(Status.Open));
         v.finalize();
         assertEq(uint8(v.status()), uint8(Status.Refunded));
+        assertEq(uint8(v.refundReason()), uint8(RefundReason.NotFunded));
         assertEq(usdc.balanceOf(payer), t.amount);
     }
 
@@ -69,6 +70,7 @@ contract VaultTest is Base {
         v.finalize();
         assertEq(uint8(v.status()), uint8(Status.Refunded));
         assertEq(uint8(v.refundReason()), uint8(RefundReason.InvalidTerms));
+        v.sweep(t.token); // invalid terms touch no token on refund; the payer sweeps it back
         assertEq(MockToken(t.token).balanceOf(payer), t.amount);
     }
 

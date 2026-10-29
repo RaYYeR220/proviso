@@ -86,7 +86,7 @@ contract HskForkTest is Test {
         payer = vm.addr(payerPk);
         provider = vm.addr(providerPk);
         Registries.Set memory reg = Registries.deploy(address(this));
-        factory = new DealFactory(makeAddr("fee"), reg.identity, reg.reputation, reg.validation, USDC_E, USDT);
+        factory = new DealFactory(makeAddr("fee"), reg.identity, reg.reputation, reg.validation, USDC_E, USDT, address(this));
         vm.prank(provider);
         providerAgentId = IdentityRegistryUpgradeable(reg.identity).register("p");
         vm.prank(payer);

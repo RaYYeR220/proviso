@@ -41,7 +41,7 @@ abstract contract Base is Test {
         reg = Registries.deploy(address(this));
         usdc = new MockToken("USDC");
         usdt = new MockToken("USDT");
-        factory = new DealFactory(feeRecipient, reg.identity, reg.reputation, reg.validation, address(usdc), address(usdt));
+        factory = new DealFactory(feeRecipient, reg.identity, reg.reputation, reg.validation, address(usdc), address(usdt), address(this));
 
         vm.prank(provider);
         providerAgentId = IdentityRegistryUpgradeable(reg.identity).register("https://p.example/agent.json");

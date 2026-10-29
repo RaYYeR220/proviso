@@ -22,9 +22,10 @@ enum Status {
 
 enum RefundReason {
     None,
-    NoDelivery,
-    NoQuorum,
-    InvalidTerms
+    NoDelivery, // funded, provider never delivered
+    NoQuorum, // disputed, the panel did not agree in time
+    InvalidTerms, // terms the factory rejects; refunded through sweep()
+    NotFunded // the terms amount never arrived before the deadline
 }
 
 interface IDealFactory {
@@ -44,6 +45,8 @@ contract DealVault is EIP712, ReentrancyGuardTransient {
     bytes32 public constant DELIVERY_TYPEHASH = keccak256("Delivery(bytes32 deliveryHash,string uri)");
     bytes32 public constant ACCEPT_TYPEHASH = keccak256("Accept(bytes32 deliveryHash)");
     bytes32 public constant DISPUTE_TYPEHASH = keccak256("Dispute(bytes32 deliveryHash,bytes32 reasonHash)");
+    /// Provider's acknowledgement of these exact terms; without it (or a delivery) no reputation is written for it.
+    bytes32 public constant QUOTE_TYPEHASH = keccak256("Quote(bytes32 termsHash)");
     /// @notice Tag a validator must put on its ERC-8004 validation response for it to count as a vote.
     string public constant COURT_TAG = "proviso.court.v1";
     bytes32 private constant COURT_TAG_HASH = keccak256(bytes(COURT_TAG));
@@ -60,10 +63,18 @@ contract DealVault is EIP712, ReentrancyGuardTransient {
     uint64 public disputedAt;
     bytes32 public deliveryHash;
     bytes32 public reasonHash;
+    bool public providerCommitted;
+
+    /// Payouts a token refused to deliver (e.g. a blacklisted recipient); the recipient claims them later.
+    mapping(address recipient => uint256) public owed;
+    uint256 public owedTotal;
 
     event Funded(uint256 balance);
     event Delivered(bytes32 deliveryHash, string uri);
     event Accepted();
+    event Committed();
+    event Owed(address indexed recipient, uint256 amount);
+    event Claimed(address indexed recipient, address to, uint256 amount);
     event Disputed(bytes32 reasonHash);
     event Settled(
         Status outcome, uint8 providerSharePct, uint256 toProvider, uint256 toPayer, uint256 fee, uint256 courtFee
@@ -76,6 +87,7 @@ contract DealVault is EIP712, ReentrancyGuardTransient {
     error BadSignature();
     error EmptyHash();
     error NoQuorum();
+    error NothingOwed();
 
     constructor() EIP712("Proviso", "1") {
         factory = msg.sender;
@@ -116,6 +128,20 @@ contract DealVault is EIP712, ReentrancyGuardTransient {
         _tryFund(terms());
     }
 
+    /// @notice Records the provider's signed acknowledgement of these terms (relayable).
+    function confirm(bytes calldata sig) external {
+        if (isTerminal()) revert WrongStatus();
+        _requireSig(terms().provider, keccak256(abi.encode(QUOTE_TYPEHASH, termsHash())), sig);
+        if (!providerCommitted) {
+            providerCommitted = true;
+            emit Committed();
+        }
+    }
+
+    function termsHash() public view returns (bytes32) {
+        return keccak256(Clones.fetchCloneArgs(address(this)));
+    }
+
     function deliver(bytes32 deliveryHash_, string calldata uri, bytes calldata sig) external {
         Terms memory t = terms();
         if (status == Status.Open) _tryFund(t);
@@ -126,6 +152,7 @@ contract DealVault is EIP712, ReentrancyGuardTransient {
             t.provider, keccak256(abi.encode(DELIVERY_TYPEHASH, deliveryHash_, keccak256(bytes(uri)))), sig
         );
         status = Status.Delivered;
+        providerCommitted = true;
         deliveredAt = uint64(block.timestamp);
         deliveryHash = deliveryHash_;
         emit Delivered(deliveryHash_, uri);
@@ -183,7 +210,7 @@ contract DealVault is EIP712, ReentrancyGuardTransient {
         Status s = status;
         if (s == Status.Open) {
             if (invalidTerms) return _refund(RefundReason.InvalidTerms);
-            if (block.timestamp > t.deliverBy) return _refund(RefundReason.NoDelivery);
+            if (block.timestamp > t.deliverBy) return _refund(RefundReason.NotFunded);
         } else if (s == Status.Funded) {
             if (block.timestamp > t.deliverBy) return _refund(RefundReason.NoDelivery);
         } else if (s == Status.Delivered) {
@@ -194,11 +221,25 @@ contract DealVault is EIP712, ReentrancyGuardTransient {
         revert NotFinal();
     }
 
-    /// @notice After settlement, anything left here (late transfers, foreign tokens) belongs to the payer.
+    /// @notice After settlement, anything left here (late transfers, foreign tokens, or the whole balance of a
+    /// vault whose terms were invalid) belongs to the payer. Amounts owed to other parties stay claimable.
     function sweep(address token) external nonReentrant {
         if (!isTerminal()) revert WrongStatus();
+        Terms memory t = terms();
         uint256 bal = IERC20(token).balanceOf(address(this));
-        if (bal > 0) IERC20(token).safeTransfer(terms().payer, bal);
+        uint256 reserved = token == t.token ? owedTotal : 0;
+        if (bal > reserved) IERC20(token).safeTransfer(t.payer, bal - reserved);
+    }
+
+    /// @notice Withdraws a payout that could not be pushed (the caller's address was refused by the token),
+    /// to any address the caller chooses.
+    function claim(address to) external nonReentrant {
+        uint256 amount = owed[msg.sender];
+        if (amount == 0) revert NothingOwed();
+        owed[msg.sender] = 0;
+        owedTotal -= amount;
+        IERC20(terms().token).safeTransfer(to, amount);
+        emit Claimed(msg.sender, to, amount);
     }
 
     // ---------------------------------------------------------------- internals
@@ -231,10 +272,10 @@ contract DealVault is EIP712, ReentrancyGuardTransient {
     function _release(Terms memory t) internal {
         IERC20 token = IERC20(t.token);
         uint256 bal = token.balanceOf(address(this));
-        uint256 owed = bal < t.amount ? bal : t.amount;
-        uint256 fee = owed * t.feeBps / 10_000;
-        uint256 toProvider = owed - fee;
-        uint256 toPayer = bal - owed;
+        uint256 due = bal < t.amount ? bal : t.amount;
+        uint256 fee = due * t.feeBps / 10_000;
+        uint256 toProvider = due - fee;
+        uint256 toPayer = bal - due;
         status = Status.Released;
         providerSharePct = 100;
         _pay(token, IDealFactory(factory).feeRecipient(), fee);
@@ -244,11 +285,16 @@ contract DealVault is EIP712, ReentrancyGuardTransient {
     }
 
     function _refund(RefundReason reason) internal {
+        status = Status.Refunded;
+        refundReason = reason;
+        // Invalid terms may name a token that is not a token; touch nothing and let sweep() return the funds.
+        if (reason == RefundReason.InvalidTerms) {
+            emit Settled(Status.Refunded, 0, 0, 0, 0, 0);
+            return;
+        }
         Terms memory t = terms();
         IERC20 token = IERC20(t.token);
         uint256 bal = token.balanceOf(address(this));
-        status = Status.Refunded;
-        refundReason = reason;
         _pay(token, t.payer, bal);
         emit Settled(Status.Refunded, 0, 0, bal, 0, 0);
     }
@@ -287,15 +333,15 @@ contract DealVault is EIP712, ReentrancyGuardTransient {
     function _resolve(Terms memory t, uint8 bucket, bool[3] memory majority) internal {
         IERC20 token = IERC20(t.token);
         uint256 bal = token.balanceOf(address(this));
-        uint256 owed = bal < t.amount ? bal : t.amount;
+        uint256 due = bal < t.amount ? bal : t.amount;
 
         uint256 n;
         for (uint256 c; c < 3; c++) {
             if (majority[c]) n++;
         }
-        uint256 perValidator = owed * t.courtFeeBps / 10_000 / n;
+        uint256 perValidator = due * t.courtFeeBps / 10_000 / n;
         uint256 courtFee = perValidator * n;
-        uint256 remainder = owed - courtFee;
+        uint256 remainder = due - courtFee;
         uint256 providerGross = remainder * bucket / 100;
         uint256 fee = providerGross * t.feeBps / 10_000;
         uint256 toProvider = providerGross - fee;
@@ -312,7 +358,14 @@ contract DealVault is EIP712, ReentrancyGuardTransient {
         emit Settled(Status.Resolved, bucket, toProvider, toPayer, fee, courtFee);
     }
 
+    /// Push payment that never reverts: a recipient the token refuses is credited and can claim() later, so one
+    /// blacklisted party cannot freeze the others' settlement.
     function _pay(IERC20 token, address to, uint256 amount) internal {
-        if (amount > 0) token.safeTransfer(to, amount);
+        if (amount == 0) return;
+        (bool ok, bytes memory ret) = address(token).call(abi.encodeCall(IERC20.transfer, (to, amount)));
+        if (ok && (ret.length == 0 || abi.decode(ret, (bool)))) return;
+        owed[to] += amount;
+        owedTotal += amount;
+        emit Owed(to, amount);
     }
 }
