@@ -1,0 +1,23 @@
+{
+  "name": "@proviso/sdk",
+  "version": "0.1.0",
+  "description": "Conditional agent-to-agent settlement on HSP: HSP merchant and payer clients, AP2 mandates, deal vault terms, cart verification.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "jose": "6.2.14",
+    "viem": "2.57.13"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "5.9.3",
+    "vitest": "5.0.5"
+  }
+}
