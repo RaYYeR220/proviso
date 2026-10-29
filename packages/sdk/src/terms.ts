@@ -73,10 +73,10 @@ export function cloneInitCode(implementation: Address, args: Hex): Hex {
 }
 
 /** The address a deal's money must be sent to (same result as `DealFactory.predict`). */
-export function predictVault(input: { factory: Address; vaultImpl: Address; terms: Terms }): Address {
+export function predictVault(input: { dealFactory: Address; vaultImpl: Address; terms: Terms }): Address {
   return getContractAddress({
     opcode: "CREATE2",
-    from: input.factory,
+    from: input.dealFactory,
     salt: input.terms.salt,
     bytecode: cloneInitCode(input.vaultImpl, encodeTerms(input.terms)),
   });

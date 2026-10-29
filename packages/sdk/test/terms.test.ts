@@ -37,8 +37,8 @@ describe("terms", () => {
 
   it("changing any field changes the predicted vault", () => {
     const d = deployments[133]!;
-    const base = predictVault({ factory: d.dealFactory, vaultImpl: d.vaultImpl, terms: sample });
-    const other = predictVault({ factory: d.dealFactory, vaultImpl: d.vaultImpl, terms: { ...sample, amount: 50_001n } });
+    const base = predictVault({ dealFactory: d.dealFactory, vaultImpl: d.vaultImpl, terms: sample });
+    const other = predictVault({ dealFactory: d.dealFactory, vaultImpl: d.vaultImpl, terms: { ...sample, amount: 50_001n } });
     expect(base).not.toBe(other);
     expect(base).not.toBe(zeroAddress);
   });
@@ -52,6 +52,6 @@ describe("terms", () => {
       functionName: "predict",
       args: [sample],
     })) as Address;
-    expect(predictVault({ factory: d.dealFactory, vaultImpl: d.vaultImpl, terms: sample })).toBe(onchain);
+    expect(predictVault({ dealFactory: d.dealFactory, vaultImpl: d.vaultImpl, terms: sample })).toBe(onchain);
   });
 });
