@@ -367,6 +367,12 @@ async function walletReady(ctx: Ctx, jobId: string, vault: Address, amount: bigi
     if (allowance < amount) {
       const tx = await chain.write(cfg.paymentAgent, { address: cfg.token.address, abi: erc20Abi, functionName: "approve", args: [HSK.permit2, 2n ** 256n - 1n] });
       addEvent(ctx.db, { vault, jobId, kind: "permit2-approved", data: { token: cfg.token.symbol }, tx });
+      // Public RPCs sit behind load balancers; wait until the allowance is visible before anyone simulates against it.
+      for (let i = 0; i < 20; i++) {
+        const seen = (await chain.publicClient.readContract({ address: cfg.token.address, abi: erc20Abi, functionName: "allowance", args: [owner, HSK.permit2] })) as bigint;
+        if (seen >= amount) break;
+        await new Promise((r) => setTimeout(r, 1500));
+      }
     }
   }
   return true;
