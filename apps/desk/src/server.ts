@@ -193,9 +193,12 @@ export function createServer(ctx: Ctx, keeper: Keeper) {
         .get(scenario) as { id: string } | undefined;
       return void res.json({ recorded: recorded?.id ?? null, reason: "The demo wallet is out of funds for a paid run; showing the most recent recorded run on this chain." });
     }
-    const ip = String(req.headers["x-forwarded-for"] ?? req.socket.remoteAddress ?? "?").split(",")[0]!.trim();
-    if (!rate(ip)) return void res.status(429).json({ error: "demo limit reached; recorded runs are on the deals page" });
-    ctx.db.prepare("INSERT INTO demo_runs (ip, ts) VALUES (?, ?)").run(ip, Math.floor(Date.now() / 1000));
+    // Refusals move no money and cost no gas, so only paid runs count against the demo limits.
+    if (PAID.has(scenario)) {
+      const ip = String(req.headers["x-forwarded-for"] ?? req.socket.remoteAddress ?? "?").split(",")[0]!.trim();
+      if (!rate(ip)) return void res.status(429).json({ error: "demo limit reached; recorded runs are on the deals page" });
+      ctx.db.prepare("INSERT INTO demo_runs (ip, ts) VALUES (?, ?)").run(ip, Math.floor(Date.now() / 1000));
+    }
     res.json({ jobId: startJob(ctx, keeper, scenario, typeof req.body?.goal === "string" ? req.body.goal.slice(0, 300) : undefined) });
   });
 
