@@ -33,7 +33,11 @@ export function JobView({ id, recorded = false }: { id: string; recorded?: boole
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!job) return <p className="dim">Loading job…</p>;
-  const running = job.job.status === "running" || job.deals.some((d) => !["settled", "expired-unpaid"].includes(d.stage));
+  // A cart the paying agent refused stays "awaiting payment" until it expires, but nothing will pay it: once the job
+  // has ended, only money already in an escrow keeps the page live.
+  const ended = job.job.status !== "running";
+  const running = !ended || job.deals.some((d) => !["settled", "expired-unpaid", "awaiting-payment"].includes(d.stage));
+  const stageLabel = (stage: string) => (ended && stage === "awaiting-payment" ? STAGE_LABEL["expired-unpaid"] : (STAGE_LABEL[stage] ?? stage));
   return (
     <div className="job">
       <div className="job-head">
@@ -48,7 +52,7 @@ export function JobView({ id, recorded = false }: { id: string; recorded?: boole
         <div className="deal-chips">
           {job.deals.map((d) => (
             <Link key={d.vault} href={`/deals/${d.vault}`} className="chip">
-              {d.provider_id} <b>{STAGE_LABEL[d.stage] ?? d.stage}</b>
+              {d.provider_id} <b>{stageLabel(d.stage)}</b>
               <span className="mono small dim">{short(d.vault, 4)}</span>
               {d.rail && <span className="small dim">{RAIL_LABEL[d.rail]}</span>}
             </Link>
