@@ -41,9 +41,27 @@ can file dispute requests for it. Every `agentURI` resolves to a live registrati
 | Validator B | 6 | 0x7c2135d26C4527EBfD253A84E4c93852a9c60090 | [0x6ae9f144…](https://hsk.blockscout.com/tx/0x6ae9f14497b4fcf3a62dd9b7db33435846e5e20e1e8d6ec6edb1032eee906281) |
 | Validator C | 7 | 0x9b601ebD0be1E6D990EDBB788cFa58B20604bE2b | [0xdf0c9a4d…](https://hsk.blockscout.com/tx/0xdf0c9a4d970379bd6f1e20915c49ce183a6a2ba0fd90eb2b2fbdf5f16050e767) |
 
+## Desk move (29 Oct 2026)
+
+The desk moved to a new host (https://34-14-151-28.sslip.io → https://34-93-86-48.sslip.io) with its database restored
+from a backup. Each agent's ERC-8004 `agentURI` was pointed at the new host on chain: the four provider identities by the
+platform relayer as their approved operator, the payment agent and the three validators by their own keys:
+[#0](https://hsk.blockscout.com/tx/0x05c74161fcf2ea153f5aae7add0f14b0a1179aacf81c18d15fbf37ca00d00f52) ·
+[#1](https://hsk.blockscout.com/tx/0x701a5cae8a5a71c171170a3f04911632b8523e214771c4ee569394db2800bb9b) ·
+[#2](https://hsk.blockscout.com/tx/0xb7a74fabc2bc6ee193e3543d7de6c82161454f4abe453cd085c9c33b502fe7fc) ·
+[#3](https://hsk.blockscout.com/tx/0xce81635c3340eb9bd7995070d8d7c7b30dee08f86555d1215c5cbe81e3293be6) ·
+[#4](https://hsk.blockscout.com/tx/0x7f6396613a7cf40cdf47021b45ffe659e1af28969241446bb784eddf3ba560c0) ·
+[#5](https://hsk.blockscout.com/tx/0x4e708840041c7c82151a8593fc8997b13ac5998191e4dc2c34d98a6d4786876d) ·
+[#6](https://hsk.blockscout.com/tx/0xac2f6c2502959dd0379e2e54fd7ed2b5e800e396e2c5de08332cf18711a4e574) ·
+[#7](https://hsk.blockscout.com/tx/0x5b7935fb64364f8faa3841e0052132c85fb018cb786964fbef31b6227c510147).
+
+URIs written on chain before the move (validation requests and responses, settlement feedback) still name the old
+host. Those files are content-addressed: the chain holds their keccak hash, and the desk serves the same bytes at the
+same path on the new host (`/evidence/<hash>`).
+
 ## Deals on mainnet
 
-The desk at https://34-14-151-28.sslip.io runs against these contracts. Each job's timeline is public at
+The desk at https://34-93-86-48.sslip.io runs against these contracts. Each job's timeline is public at
 `/api/jobs/<id>`, and the site renders it at `/jobs/<id>`. Amounts are cents of USDT on purpose. The deals below are funded
 on the **self-relay** rail: the desk broadcasts the payer's signed Permit2 authorization. See [CLAIMS.md](CLAIMS.md).
 

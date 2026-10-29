@@ -3,7 +3,7 @@
     "role": "auditor",
     "address": "0xE1793c158608d40a27A126330Af9D573d19b1Fe3",
     "agentId": "0",
-    "agentURI": "https://34-14-151-28.sslip.io/agents/auditor.json",
+    "agentURI": "https://34-93-86-48.sslip.io/agents/auditor.json",
     "registerTx": "0x104f375cec735f0261d8d460340ce1333e3a8c42dce846d522d6da1de25f516d",
     "operatorTx": "0xcb54d37d6d38bc505937a61834d76b31989177f12dd38f01cdb1130c12e6375f"
   },
@@ -11,7 +11,7 @@
     "role": "analyst",
     "address": "0x872aF6DE63357ffaa653bC9e24913AEC7cb635eb",
     "agentId": "1",
-    "agentURI": "https://34-14-151-28.sslip.io/agents/analyst.json",
+    "agentURI": "https://34-93-86-48.sslip.io/agents/analyst.json",
     "registerTx": "0x66073e08b544feae5ec0694f44f84195c4805299d9dfb0e1618e072769d728ad",
     "operatorTx": "0x86d98b00c1ba3f8a8c3ae5d03f6ea2060950c50064ce56678dc2a7f7777ac667"
   },
@@ -19,7 +19,7 @@
     "role": "localizer",
     "address": "0x5Bc962Fcc8e63dbDe3A6Ebaa8714CedDF44dF289",
     "agentId": "2",
-    "agentURI": "https://34-14-151-28.sslip.io/agents/localizer.json",
+    "agentURI": "https://34-93-86-48.sslip.io/agents/localizer.json",
     "registerTx": "0xe41b451529077da085482a00b8891c9b983ff3ea1908aff218c15c45d56acc22",
     "operatorTx": "0xc5b1e8a5393c0622eae74f4ec177568ecd7354df6504f071b0768028a63440a8"
   },
@@ -27,7 +27,7 @@
     "role": "shady",
     "address": "0x61746547653766aFE7cB718935010a42710f193E",
     "agentId": "3",
-    "agentURI": "https://34-14-151-28.sslip.io/agents/shady.json",
+    "agentURI": "https://34-93-86-48.sslip.io/agents/shady.json",
     "registerTx": "0xfc5484cba92ac9028d5cd801797836315553ee64c561047946f615c3480c162c",
     "operatorTx": "0x916c4b596db76e503c01756a3ca36e91c6b6781dd03fd0ddcbc7babc3ce3c44e"
   },
@@ -35,28 +35,28 @@
     "role": "payment-agent",
     "address": "0x9A712cb6353C84A7893b0A5Fd0702663a2032C21",
     "agentId": "4",
-    "agentURI": "https://34-14-151-28.sslip.io/agents/payment-agent.json",
+    "agentURI": "https://34-93-86-48.sslip.io/agents/payment-agent.json",
     "registerTx": "0x79469fb8034c1dfc1ab8287374d65ed859cb38bbae61c2539799d84eee1c4c11"
   },
   "validator-0": {
     "role": "validator-0",
     "address": "0x66770264c966fa2dC78c015820dfDc0098ECA1A6",
     "agentId": "5",
-    "agentURI": "https://34-14-151-28.sslip.io/agents/validator-0.json",
+    "agentURI": "https://34-93-86-48.sslip.io/agents/validator-0.json",
     "registerTx": "0x69cb1ca9adda9ae9b0e309664a01a6920161dce161ba07ecf7009f3b9b72bb4c"
   },
   "validator-1": {
     "role": "validator-1",
     "address": "0x7c2135d26C4527EBfD253A84E4c93852a9c60090",
     "agentId": "6",
-    "agentURI": "https://34-14-151-28.sslip.io/agents/validator-1.json",
+    "agentURI": "https://34-93-86-48.sslip.io/agents/validator-1.json",
     "registerTx": "0x6ae9f14497b4fcf3a62dd9b7db33435846e5e20e1e8d6ec6edb1032eee906281"
   },
   "validator-2": {
     "role": "validator-2",
     "address": "0x9b601ebD0be1E6D990EDBB788cFa58B20604bE2b",
     "agentId": "7",
-    "agentURI": "https://34-14-151-28.sslip.io/agents/validator-2.json",
+    "agentURI": "https://34-93-86-48.sslip.io/agents/validator-2.json",
     "registerTx": "0xdf0c9a4d970379bd6f1e20915c49ce183a6a2ba0fd90eb2b2fbdf5f16050e767"
   }
 }
