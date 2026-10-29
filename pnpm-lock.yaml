@@ -22,9 +22,6 @@ importers:
 
   packages/sdk:
     dependencies:
-      jose:
-        specifier: 6.2.14
-        version: 6.2.14
       viem:
         specifier: 2.57.13
         version: 2.57.13(typescript@5.9.3)
@@ -32,6 +29,9 @@ importers:
       '@types/node':
         specifier: ^24.0.0
         version: 24.19.2
+      jose:
+        specifier: 6.2.14
+        version: 6.2.14
       typescript:
         specifier: 5.9.3
         version: 5.9.3
