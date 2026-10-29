@@ -18,7 +18,7 @@ for (const tx of d.transactions) {
   const name = tx.contractName;
   let args = "";
   if (name === "ERC1967Proxy") args = enc("address,bytes", tx.arguments);
-  if (name === "DealFactory") args = enc("address,address,address,address,address,address", tx.arguments);
+  if (name === "DealFactory") args = enc("address,address,address,address,address,address,address", tx.arguments);
   console.log([name, tx.contractAddress, args].join(" "));
 }' "$broadcast" | while read -r name addr args; do
   path="src/DealFactory.sol:DealFactory"

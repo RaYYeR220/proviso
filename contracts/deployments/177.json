@@ -1,0 +1,14 @@
+{
+  "chainId": 177,
+  "dealFactory": "0xE7466dd955329203bcB996bA89Da8882E2cAB263",
+  "deployedAtBlock": 29473080,
+  "feeRecipient": "0x99375054F10Bd5854bFa850E1a422f4d0D540f07",
+  "identityRegistry": "0x2a83321DEaaB8dc74afAA97cA9594f1D1de8b4fe",
+  "registriesRenounced": true,
+  "reputationRegistry": "0xb41B55D151bbE430b690cdFbf2a0A9D439b22a54",
+  "settler": "0x99375054F10Bd5854bFa850E1a422f4d0D540f07",
+  "usdc": "0x054ed45810DbBAb8B27668922D110669c9D88D0a",
+  "usdt": "0xF1B50eD67A9e2CC94Ad3c477779E2d4cBfFf9029",
+  "validationRegistry": "0x6bbfD112b3F8b6FE5b6700FaD0816C7955c7A3cb",
+  "vaultImpl": "0x0adb3adf35516A60Ea1662908Bd82Af6Ef6D4a12"
+}
