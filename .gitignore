@@ -59,3 +59,4 @@ Thumbs.db
 # local fork deployments
 contracts/deployments/31337*.json
 contracts/broadcast/*/31337/
+apps/web/next-env.d.ts

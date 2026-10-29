@@ -1,0 +1,36 @@
+.hero-head { display: grid; grid-template-columns: 1.15fr 1fr; gap: 48px; align-items: end; }
+.hero-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 28px; }
+
+.sec-head { max-width: 860px; display: grid; gap: 18px; margin-bottom: 40px; }
+.sec-head.row { max-width: none; display: flex; justify-content: space-between; align-items: end; }
+
+.schematic { border-radius: var(--r2); box-shadow: inset 0 0 0 1px var(--hair); background: var(--g1); padding: 12px; overflow-x: auto; }
+.schematic svg { width: 100%; min-width: 860px; height: auto; display: block; }
+.schematic .flow { animation: flow 2.4s linear infinite; }
+@keyframes flow { to { stroke-dashoffset: -28; } }
+
+.three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; margin-top: 48px; }
+.three .num { font-family: var(--dots); font-weight: 700; color: var(--amb); font-size: 18px; margin-bottom: 14px; }
+.three .h3 { margin-bottom: 10px; }
+.three .dim { font-size: 15px; line-height: 1.55; }
+
+.fails { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--hair); border-radius: var(--r2); overflow: hidden; box-shadow: inset 0 0 0 1px var(--hair); }
+.fail { background: var(--g0); padding: 28px; display: grid; gap: 10px; align-content: start; transition: background 0.3s; }
+.fail:hover { background: var(--g1); }
+.fail .code { font-family: var(--dots); font-weight: 700; color: var(--amb); font-size: 15px; letter-spacing: 0.03em; }
+.fail .dim { font-size: 14px; line-height: 1.55; }
+
+.deal-list { display: grid; border-top: 1px solid var(--hair); }
+.deal-row { display: grid; grid-template-columns: 1.2fr 1fr 0.7fr 1.2fr 1fr 0.8fr; gap: 16px; align-items: center; padding: 14px 4px; border-bottom: 1px solid var(--hair); text-decoration: none; font-size: 14px; transition: background 0.2s; }
+.deal-row:hover { background: var(--g1); }
+
+.builders { display: grid; grid-template-columns: 1.3fr 1fr; gap: 20px; }
+.code-card { padding: 22px; display: grid; gap: 12px; }
+.code-card pre { font-family: var(--mono); font-size: 13px; line-height: 1.7; color: var(--ink-2); white-space: pre-wrap; word-break: break-word; }
+
+@media (max-width: 900px) {
+  .hero-head { grid-template-columns: 1fr; gap: 20px; }
+  .three, .fails, .builders { grid-template-columns: 1fr; }
+  .deal-row { grid-template-columns: 1fr 1fr; }
+  .deal-row > :nth-child(5), .deal-row > :nth-child(6) { display: none; }
+}
