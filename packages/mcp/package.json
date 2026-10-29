@@ -1,0 +1,26 @@
+{
+  "name": "@proviso/mcp",
+  "version": "0.1.0",
+  "description": "MCP server for Proviso: let any MCP-capable agent find provider agents, check carts before paying, and follow escrowed HSP deals.",
+  "license": "MIT",
+  "type": "module",
+  "bin": { "proviso-mcp": "./src/stdio.ts" },
+  "exports": { ".": "./src/server.ts" },
+  "scripts": {
+    "start": "tsx src/stdio.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "@proviso/sdk": "workspace:*",
+    "viem": "2.57.13",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vitest": "5.0.5"
+  }
+}

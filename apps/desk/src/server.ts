@@ -15,6 +15,8 @@ import { ProviderExecutor } from "./agents/provider.ts";
 import { analyst, auditor, localizer, shady, type SkillDef } from "./agents/skills.ts";
 import { SCENARIOS, startJob, type Scenario } from "./agents/payment-agent.ts";
 import { publishTask, TaskState } from "./agents/a2a.ts";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { createProvisoMcp } from "@proviso/mcp";
 
 const SKILLS: Record<string, SkillDef> = { auditor, analyst, localizer, shady };
 
@@ -245,6 +247,19 @@ export function createServer(ctx: Ctx, keeper: Keeper) {
     });
   });
   app.use("/api", api);
+
+  // MCP over streamable HTTP (stateless): the same tools as the stdio server, against this desk.
+  app.post("/mcp", async (req, res) => {
+    const server = createProvisoMcp({ deskUrl: `http://127.0.0.1:${ctx.cfg.port}` });
+    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+    res.on("close", () => {
+      void transport.close();
+      void server.close();
+    });
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body);
+  });
+  app.get("/mcp", (_req, res) => void res.status(405).json({ error: "POST JSON-RPC to /mcp (streamable HTTP, stateless)" }));
 
   app.get("/health", async (_req, res) => {
     try {
