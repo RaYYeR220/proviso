@@ -8,6 +8,7 @@ import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 import {Terms, TermsLib} from "./Terms.sol";
+import {IValidationRegistry} from "./interfaces/IERC8004.sol";
 
 enum Status {
     Open, // deployed, waiting for the terms amount to be present
@@ -29,6 +30,7 @@ enum RefundReason {
 interface IDealFactory {
     function validate(Terms memory t) external view returns (bool ok, string memory reason);
     function feeRecipient() external view returns (address);
+    function validation() external view returns (IValidationRegistry);
 }
 
 /// @title DealVault
@@ -42,6 +44,9 @@ contract DealVault is EIP712, ReentrancyGuardTransient {
     bytes32 public constant DELIVERY_TYPEHASH = keccak256("Delivery(bytes32 deliveryHash,string uri)");
     bytes32 public constant ACCEPT_TYPEHASH = keccak256("Accept(bytes32 deliveryHash)");
     bytes32 public constant DISPUTE_TYPEHASH = keccak256("Dispute(bytes32 deliveryHash,bytes32 reasonHash)");
+    /// @notice Tag a validator must put on its ERC-8004 validation response for it to count as a vote.
+    string public constant COURT_TAG = "proviso.court.v1";
+    bytes32 private constant COURT_TAG_HASH = keccak256(bytes(COURT_TAG));
 
     address public immutable factory;
 
@@ -70,6 +75,7 @@ contract DealVault is EIP712, ReentrancyGuardTransient {
     error NotFinal();
     error BadSignature();
     error EmptyHash();
+    error NoQuorum();
 
     constructor() EIP712("Proviso", "1") {
         factory = msg.sender;
@@ -142,6 +148,32 @@ contract DealVault is EIP712, ReentrancyGuardTransient {
         disputedAt = uint64(block.timestamp);
         reasonHash = reasonHash_;
         emit Disputed(reasonHash_);
+    }
+
+    /// @notice Settles a dispute from the ERC-8004 ValidationRegistry. `idx[k]` names a panel member and
+    /// `salts[k]` the salt the provider used for that member's request, whose hash is bound to this vault
+    /// (`keccak256(abi.encode(vault, i, salt))`). Any two panel members answering the same bucket
+    /// (0/25/50/75/100 = provider's share in percent) decide; the court fee goes to the members in that majority.
+    function resolve(uint8[] calldata idx, bytes32[] calldata salts) external nonReentrant {
+        if (status != Status.Disputed) revert WrongStatus();
+        Terms memory t = terms();
+        if (block.timestamp > uint256(disputedAt) + t.courtWindow) revert TooLate();
+        if (idx.length != salts.length || idx.length < 2 || idx.length > 3) revert NoQuorum();
+
+        (bool[3] memory voted, uint8[3] memory votes) = _collect(t, idx, salts);
+
+        for (uint256 a; a < 3; a++) {
+            for (uint256 b = a + 1; b < 3; b++) {
+                if (voted[a] && voted[b] && votes[a] == votes[b]) {
+                    bool[3] memory majority;
+                    for (uint256 c; c < 3; c++) {
+                        majority[c] = voted[c] && votes[c] == votes[a];
+                    }
+                    return _resolve(t, votes[a], majority);
+                }
+            }
+        }
+        revert NoQuorum();
     }
 
     /// @notice Anyone may settle a vault whose clock has run out: silence after delivery releases, no delivery
@@ -219,6 +251,65 @@ contract DealVault is EIP712, ReentrancyGuardTransient {
         refundReason = reason;
         _pay(token, t.payer, bal);
         emit Settled(Status.Refunded, 0, 0, bal, 0, 0);
+    }
+
+    function _collect(Terms memory t, uint8[] calldata idx, bytes32[] calldata salts)
+        internal
+        view
+        returns (bool[3] memory voted, uint8[3] memory votes)
+    {
+        address registry = address(IDealFactory(factory).validation());
+        uint256 seen;
+        for (uint256 k; k < idx.length; k++) {
+            uint8 i = idx[k];
+            if (i >= 3 || seen & (1 << i) != 0) revert NoQuorum();
+            seen |= 1 << i;
+            (voted[i], votes[i]) = _readVote(registry, t, i, salts[k]);
+        }
+    }
+
+    function _readVote(address registry, Terms memory t, uint8 i, bytes32 salt)
+        internal
+        view
+        returns (bool ok, uint8 bucket)
+    {
+        bytes32 h = keccak256(abi.encode(address(this), i, salt));
+        (bool success, bytes memory ret) =
+            registry.staticcall(abi.encodeCall(IValidationRegistry.getValidationStatus, (h)));
+        if (!success) return (false, 0); // unknown request
+        (address validator, uint256 agentId, uint8 response,, string memory tag, uint256 lastUpdate) =
+            abi.decode(ret, (address, uint256, uint8, bytes32, string, uint256));
+        ok = validator == t.validators[i] && agentId == t.providerAgentId && lastUpdate >= disputedAt
+            && keccak256(bytes(tag)) == COURT_TAG_HASH && response <= 100 && response % 25 == 0;
+        bucket = response;
+    }
+
+    function _resolve(Terms memory t, uint8 bucket, bool[3] memory majority) internal {
+        IERC20 token = IERC20(t.token);
+        uint256 bal = token.balanceOf(address(this));
+        uint256 owed = bal < t.amount ? bal : t.amount;
+
+        uint256 n;
+        for (uint256 c; c < 3; c++) {
+            if (majority[c]) n++;
+        }
+        uint256 perValidator = owed * t.courtFeeBps / 10_000 / n;
+        uint256 courtFee = perValidator * n;
+        uint256 remainder = owed - courtFee;
+        uint256 providerGross = remainder * bucket / 100;
+        uint256 fee = providerGross * t.feeBps / 10_000;
+        uint256 toProvider = providerGross - fee;
+        uint256 toPayer = bal - courtFee - providerGross;
+
+        status = Status.Resolved;
+        providerSharePct = bucket;
+        for (uint256 c; c < 3; c++) {
+            if (majority[c]) _pay(token, t.validators[c], perValidator);
+        }
+        _pay(token, IDealFactory(factory).feeRecipient(), fee);
+        _pay(token, t.provider, toProvider);
+        _pay(token, t.payer, toPayer);
+        emit Settled(Status.Resolved, bucket, toProvider, toPayer, fee, courtFee);
     }
 
     function _pay(IERC20 token, address to, uint256 amount) internal {

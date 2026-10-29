@@ -3,7 +3,7 @@ pragma solidity 0.8.28;
 
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {Terms, TermsLib} from "./Terms.sol";
-import {DealVault} from "./DealVault.sol";
+import {DealVault, Status, RefundReason} from "./DealVault.sol";
 import {IIdentityRegistry, IReputationRegistry, IValidationRegistry} from "./interfaces/IERC8004.sol";
 
 /// @title DealFactory
@@ -25,6 +25,7 @@ contract DealFactory {
     address public immutable usdt;
 
     mapping(address vault => bool) public isVault;
+    mapping(address vault => bool) public settled;
 
     event DealOpened(
         address indexed vault,
@@ -35,6 +36,14 @@ contract DealFactory {
         bytes32 specHash,
         bytes32 salt
     );
+
+    event ReputationWritten(
+        address indexed vault, uint256 providerAgentId, uint256 payerAgentId, int128 providerValue, int128 payerValue
+    );
+
+    error NotVault();
+    error NotTerminal();
+    error AlreadySettled();
 
     constructor(
         address feeRecipient_,
@@ -86,6 +95,43 @@ contract DealFactory {
         if (!_agentExists(t.providerAgentId)) return (false, "providerAgent");
         if (!_agentExists(t.payerAgentId)) return (false, "payerAgent");
         return (true, "");
+    }
+
+    /// @notice Writes settlement-backed reputation for a finished vault, once. The values come from the vault's
+    /// on-chain outcome, never from the caller; the caller only supplies the evidence file (A2A task, AP2 mandate
+    /// hashes, the HSP funding tx) that `feedbackURI` points to. Readers filter `getSummary` by this factory as
+    /// the client to get reputation earned only through settled escrow.
+    function settle(address vault, string calldata feedbackURI, bytes32 feedbackHash) external {
+        if (!isVault[vault]) revert NotVault();
+        if (settled[vault]) revert AlreadySettled();
+        DealVault v = DealVault(vault);
+        if (!v.isTerminal()) revert NotTerminal();
+        settled[vault] = true;
+
+        Status s = v.status();
+        RefundReason why = v.refundReason();
+        if (why == RefundReason.InvalidTerms) return;
+
+        int128 providerValue = int128(uint128(v.providerSharePct()));
+        int128 payerValue = 100;
+        string memory outcome;
+        if (s == Status.Released) {
+            outcome = "released";
+        } else if (s == Status.Resolved) {
+            outcome = "resolved";
+            payerValue = 100 - providerValue;
+        } else {
+            outcome = why == RefundReason.NoQuorum ? "refunded-noquorum" : "refunded-nodelivery";
+        }
+
+        Terms memory t = v.terms();
+        try reputation.giveFeedback(
+            t.providerAgentId, providerValue, 0, "proviso.settlement", outcome, "", feedbackURI, feedbackHash
+        ) {} catch {}
+        try reputation.giveFeedback(
+            t.payerAgentId, payerValue, 0, "proviso.payer", outcome, "", feedbackURI, feedbackHash
+        ) {} catch {}
+        emit ReputationWritten(vault, t.providerAgentId, t.payerAgentId, providerValue, payerValue);
     }
 
     /// @notice The ERC-8004 validation request hash a provider must use for panel member `i` of `vault`.
