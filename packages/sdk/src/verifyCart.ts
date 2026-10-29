@@ -29,7 +29,8 @@ export type VerifyCartResult = { ok: true; vault: Address } | { ok: false; code:
 
 export interface VerifyCartInput {
   cart: CartMandate;
-  terms: Terms;
+  /** Proviso deal terms sent with the cart; absent for a plain (non-escrow) HSP checkout. */
+  terms?: Terms;
   intent: Intent;
   intentSignature: Hex;
   /** Address that must have signed the intent (the human principal). */
@@ -71,19 +72,31 @@ export async function verifyCart(input: VerifyCartInput): Promise<VerifyCartResu
   if (Date.parse(intent.intent_expiry) / 1000 <= now) return refuse("INTENT_EXPIRED", `intent expired at ${intent.intent_expiry}`);
 
   const jwt = await verifyCartJwt(cart, input.merchantPublicKeyPem, now);
-  if (!jwt.ok) return refuse(jwt.reason, "merchant authorization does not verify against the published merchant key");
+  if (!jwt.ok) {
+    return refuse(
+      jwt.reason,
+      jwt.reason === "CART_HASH_MISMATCH"
+        ? "the cart was changed after the merchant signed it (cart_hash differs)"
+        : "the merchant authorization does not verify against the published merchant key",
+    );
+  }
   if (Date.parse(cart.contents.cart_expiry) / 1000 <= now) return refuse("CART_EXPIRED", `cart expired at ${cart.contents.cart_expiry}`);
   if (intent.merchants?.length && !intent.merchants.includes(cart.contents.merchant_name)) {
     return refuse("MERCHANT_NOT_ALLOWED", `${cart.contents.merchant_name} is not in the intent's merchants`);
   }
 
-  if (!same(terms.payer, input.self) || !same(intent.proviso.payer, input.self)) {
+  if (!same(intent.proviso.payer, input.self) || (terms && !same(terms.payer, input.self))) {
     return refuse("PAYER_NOT_SELF", "the terms or the intent name a different payer");
   }
 
   const method = cart.contents.payment_request.method_data.find((m) => m.supported_methods === X402_METHOD);
   if (!method) return refuse("TOKEN_MISMATCH", "cart has no x402 payment method");
   const m = method.data;
+  if (!terms) {
+    return intent.requires_refundability
+      ? refuse("NOT_REFUNDABLE", `cart pays ${m.pay_to} directly with no escrow terms; the intent requires refundability`)
+      : refuse("PAYTO_NOT_VAULT", `cart pays ${m.pay_to} directly with no escrow terms`);
+  }
   if (
     m.chain_id !== input.token.chain_id ||
     !same(m.contract_address, input.token.address) ||

@@ -219,6 +219,10 @@ describe("verifyCart", () => {
     expect(await refusal(await makeCart(), { providerReputation: { count: 5n, average: 20 } })).toBe("REPUTATION_TOO_LOW");
   });
 
+  it("NOT_REFUNDABLE for a plain checkout with no escrow terms", async () => {
+    expect(await refusal(await makeCart({ payTo: provider }), { terms: undefined })).toBe("NOT_REFUNDABLE");
+  });
+
   it("MERCHANT_NOT_ALLOWED", async () => {
     const strict = { ...intent, merchants: ["Someone"] };
     const sig = await signIntent(user, strict);

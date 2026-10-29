@@ -1,0 +1,25 @@
+{
+  "name": "@proviso/desk",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "dev": "tsx watch src/main.ts",
+    "register": "tsx scripts/register-agents.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@a2a-js/sdk": "1.3.0",
+    "@proviso/sdk": "workspace:*",
+    "express": "5.1.0",
+    "viem": "2.57.13"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^24.0.0",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vitest": "5.0.5"
+  }
+}

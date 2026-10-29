@@ -55,3 +55,7 @@ screencast/
 # os
 .DS_Store
 Thumbs.db
+
+# local fork deployments
+contracts/deployments/31337*.json
+contracts/broadcast/*/31337/

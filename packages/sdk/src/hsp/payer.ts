@@ -55,6 +55,8 @@ export async function buildPaymentMandate(input: {
   /** EIP-3009 bytes32 nonce or Permit2 uint256 nonce; random when omitted. */
   nonce?: Hex | bigint;
   validForSeconds?: number;
+  /** EIP-3009 `validAfter` is set this many seconds in the past so a chain whose head lags wall time accepts it. */
+  clockSkewSeconds?: number;
   now?: number;
 }): Promise<BuiltPaymentMandate> {
   const { cart, account, token } = input;
@@ -73,11 +75,12 @@ export async function buildPaymentMandate(input: {
   let signature: Hex;
   if (token.payment_protocol === "eip3009") {
     const nonce = (typeof input.nonce === "string" ? input.nonce : `0x${randomHex(32)}`) as Hex;
+    const validAfter = now - (input.clockSkewSeconds ?? 60);
     authorization = {
       from: account.address,
       to: payTo,
       value: value.toString(),
-      validAfter: String(now),
+      validAfter: String(validAfter),
       validBefore: String(until),
       nonce,
     };
@@ -85,7 +88,7 @@ export async function buildPaymentMandate(input: {
       domain: { name: token.name, version: token.version, chainId: token.chain_id, verifyingContract: token.address },
       types: { TransferWithAuthorization: TRANSFER_WITH_AUTHORIZATION },
       primaryType: "TransferWithAuthorization",
-      message: { from: account.address, to: payTo, value, validAfter: BigInt(now), validBefore: BigInt(until), nonce },
+      message: { from: account.address, to: payTo, value, validAfter: BigInt(validAfter), validBefore: BigInt(until), nonce },
     });
   } else {
     const nonce = typeof input.nonce === "bigint" ? input.nonce : BigInt(`0x${randomHex(16)}`);
