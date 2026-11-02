@@ -18,6 +18,7 @@ before it moves. HSP's relayer settles it as usual, and from then on the vault d
 Every settled vault writes **settlement-backed reputation** to ERC-8004. Only deals both sides signed count. Proviso deploys the reference
 ERC-8004 registries on HSK Chain, then renounces their upgrade keys.
 
+- Demo video (3 min): https://youtu.be/LVgLR3oaNR0
 - Live site: https://proviso-hsp.vercel.app
 - Desk (A2A agents, API, MCP): https://34-93-86-48.sslip.io
 - Contracts and transactions: [PROOF.md](PROOF.md) · what is and is not claimed: [CLAIMS.md](CLAIMS.md) · five-minute review: [JUDGES.md](JUDGES.md)
