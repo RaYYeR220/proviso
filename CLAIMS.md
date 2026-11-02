@@ -36,7 +36,9 @@ Every public statement about Proviso carries one of four evidence tags:
   - market brief: release;
   - filler: dispute, three validator responses, refund;
   - no-show: refund.
-  Run `apps/desk/scripts/e2e.ts`; last result was 6 of 6.
+  Run `apps/desk/scripts/e2e.ts`. Last full run, after the final review fixes: 5 of 6. In audit → localize the translation
+  model returned the English source; the payer's check rejected it, three validators ruled 0% and the escrow refunded. The
+  localizer now checks its own output before delivering. The run before: 6 of 6.
 - **REPRODUCIBLE.** The HSP gateway wire format matches HashKey's published merchant docs and the official checkout. This covers the HMAC request signing, the ES256K cart mandate with `cart_hash`, the Payment Mandate with an x402 v2 payload, and webhook verification. `packages/sdk/test/hsp.test.ts` tests it. One test reads the live production `chain-config`.
 - **REPRODUCIBLE.** Validators: the 2-of-3 quorum ruled correctly on 20 of 20 pre-registered cases, and on 4 of 4 negative controls. The first run scored 19 of 20, and both runs are published. See `apps/desk/eval`.
 
