@@ -191,7 +191,12 @@ export function createServer(ctx: Ctx, keeper: Keeper) {
       const recorded = ctx.db
         .prepare("SELECT id FROM jobs WHERE scenario = ? AND status != 'error' ORDER BY created_at DESC LIMIT 1")
         .get(scenario) as { id: string } | undefined;
-      return void res.json({ recorded: recorded?.id ?? null, reason: "The demo wallet is out of funds for a paid run; showing the most recent recorded run on this chain." });
+      return void res.json({
+        recorded: recorded?.id ?? null,
+        reason: recorded
+          ? "The demo wallet is out of funds for a paid run; showing the most recent recorded run on this chain."
+          : "The demo wallet is out of funds for a paid run, and this scenario has no recorded run on this chain. Market brief, filler and no-show have recorded runs; the three refusals run live.",
+      });
     }
     // Refusals move no money and cost no gas, so only paid runs count against the demo limits.
     if (PAID.has(scenario)) {
